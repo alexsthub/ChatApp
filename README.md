@@ -1,6 +1,6 @@
 # INFO 441 Challenges
 
-This repo was automatically created for you by GitHub Classroom. **DO NOT FORK THIS REPO INTO YOUR OWN ACCOUNT!** Instead, clone this repo to your development machine by using `git clone <git url> command`. 
+This repo was automatically created for you by GitHub Classroom. **DO NOT FORK THIS REPO INTO YOUR OWN ACCOUNT!** Instead, clone this repo to your development machine by using `git clone <git url>` command. 
 
 ## Is this repo private? Can other students see my code? 
 
