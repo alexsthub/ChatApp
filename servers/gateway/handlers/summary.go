@@ -109,9 +109,8 @@ func fetchHTML(pageURL string) (io.ReadCloser, error) {
 	contentType := resp.Header.Get("Content-Type")
 	if !strings.HasPrefix(contentType, "text/html") {
 		return nil, fmt.Errorf("Response is not a valid HTML page. Is %s", resp.Header.Get("Content-Type"))
-	} else {
-		return resp.Body, nil
 	}
+	return resp.Body, nil
 }
 
 //extractSummary tokenizes the `htmlStream` and populates a PageSummary
@@ -146,10 +145,22 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 		// TODO: process the token according to the token type...
 		if tokenType == html.StartTagToken {
 			token := tokenizer.Token()
-			if token.Data == "meta" {
-
+			switch tag := token.Data; tag {
+			case "title":
+				tokenType = tokenizer.Next()
+				if tokenType == html.TextToken {
+					summaryData.Title = tokenizer.Token().Data
+				}
+			case "meta":
+				for _, attr := range token.Attr {
+					if attr.Key == "property" && attr.Val == "og:type" {
+						found := true
+					}
+					if attr.Key == "content" {
+						value := attr.Val
+					}
+				}
 			}
-
 		}
 
 		// After reaching the end of the head, stop tokenizing
@@ -160,6 +171,5 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 			}
 		}
 	}
-
 	return summaryData, nil
 }
