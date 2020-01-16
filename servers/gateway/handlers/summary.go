@@ -1,8 +1,13 @@
 package handlers
 
 import (
+	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"strings"
+
+	"golang.org/x/net/html"
 )
 
 //PreviewImage represents a preview image for a page
@@ -49,13 +54,30 @@ func SummaryHandler(w http.ResponseWriter, r *http.Request) {
 	- Finally, respond with a JSON-encoded version of the PageSummary
 	  struct. That way the client can easily parse the JSON back into
 	  an object. Remember to tell the client that the response content
-	  type is JSON.
+		type is JSON.
 
 	Helpful Links:
 	https://golang.org/pkg/net/http/#Request.FormValue
 	https://golang.org/pkg/net/http/#Error
 	https://golang.org/pkg/encoding/json/#NewEncoder
 	*/
+
+	w.Header().Add("Access-Control-Allow-Origin", "*")
+	// Get the url query string parameter?
+	requestQuery := r.URL.Path
+	if len(requestQuery) == 0 {
+		log.Fatal(http.StatusBadRequest)
+	}
+	stream, err := fetchHTML(requestQuery)
+	if err != nil {
+		log.Fatal(err)
+	}
+	summary, err := extractSummary(requestQuery, stream)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Print(summary)
 }
 
 //fetchHTML fetches `pageURL` and returns the body stream or an error.
@@ -76,7 +98,20 @@ func fetchHTML(pageURL string) (io.ReadCloser, error) {
 	Helpful Links:
 	https://golang.org/pkg/net/http/#Get
 	*/
-	return nil, nil
+	resp, err := http.Get(pageURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("status code: %v", resp.StatusCode)
+	}
+	contentType := resp.Header.Get("Content-Type")
+	if !strings.HasPrefix(contentType, "text/html") {
+		return nil, fmt.Errorf("Response is not a valid HTML page. Is %s", resp.Header.Get("Content-Type"))
+	} else {
+		return resp.Body, nil
+	}
 }
 
 //extractSummary tokenizes the `htmlStream` and populates a PageSummary
@@ -96,5 +131,35 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 	https://developers.facebook.com/docs/reference/opengraph/
 	https://golang.org/pkg/net/url/#URL.ResolveReference
 	*/
-	return nil, nil
+	defer htmlStream.Close()
+	tokenizer := html.NewTokenizer(htmlStream)
+	summaryData := &PageSummary{}
+	for {
+		tokenType := tokenizer.Next()
+		if tokenType == html.ErrorToken {
+			err := tokenizer.Err()
+			if err == io.EOF {
+				break
+			}
+			log.Fatalf("error tokenizing HTML: %v", tokenizer.Err())
+		}
+		// TODO: process the token according to the token type...
+		if tokenType == html.StartTagToken {
+			token := tokenizer.Token()
+			if token.Data == "meta" {
+
+			}
+
+		}
+
+		// After reaching the end of the head, stop tokenizing
+		if tokenType == html.EndTagToken {
+			token := tokenizer.Token()
+			if token.Data == "head" {
+				break
+			}
+		}
+	}
+
+	return summaryData, nil
 }
