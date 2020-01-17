@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -143,7 +144,7 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 			log.Fatalf("error tokenizing HTML: %v", tokenizer.Err())
 		}
 		// TODO: process the token according to the token type...
-		if tokenType == html.StartTagToken {
+		if tokenType == html.StartTagToken || tokenType == html.SelfClosingTagToken {
 			token := tokenizer.Token()
 			switch tag := token.Data; tag {
 			case "title":
@@ -152,14 +153,61 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 					summaryData.Title = tokenizer.Token().Data
 				}
 			case "meta":
+				// for _, attr := range token.Attr {
+				// 	if attr.Key == "property" && attr.Val == "og:type" {
+				// 		found := true
+				// 	}
+				// 	if attr.Key == "content" {
+				// 		value := attr.Val
+				// 	}
+				// }
+
 				for _, attr := range token.Attr {
-					if attr.Key == "property" && attr.Val == "og:type" {
-						found := true
+					if attr.Key == "name" && attr.Val == "keywords" {
+						// Put this somewhere
 					}
 					if attr.Key == "content" {
-						value := attr.Val
+						keywordString := attr.Val
+						keywords := strings.Split(keywordString, ",")
+						for i := range keywords {
+							keywords[i] = strings.TrimSpace(keywords[i])
+						}
 					}
 				}
+			case "link":
+				previewImage := PreviewImage{}
+				for _, attr := range token.Attr {
+					// Make sure it is the icon
+					if attr.Key == "rel" && attr.Val == "icon" {
+
+					}
+					// Href
+					if attr.Key == "href" {
+						previewImage.URL = attr.Val
+					}
+					// Type
+					if attr.Key == "type" {
+						previewImage.Type = attr.Val
+					}
+					// Sizes
+					if attr.Key == "sizes" {
+						sizeString := strings.TrimSpace(attr.Val)
+						if sizeString != "any" {
+							sizes := strings.Split(attr.Val, "x")
+							for i := range sizes {
+								sizes[i] = strings.TrimSpace(sizes[i])
+							}
+							if len(sizes) == 2 {
+								height, _ := strconv.Atoi(sizes[0])
+								width, _ := strconv.Atoi(sizes[1])
+								previewImage.Height = height
+								previewImage.Width = width
+							}
+						}
+					}
+
+				}
+				log.Print(previewImage)
 			}
 		}
 
