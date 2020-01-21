@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -63,22 +64,26 @@ func SummaryHandler(w http.ResponseWriter, r *http.Request) {
 	https://golang.org/pkg/encoding/json/#NewEncoder
 	*/
 
+	//
 	w.Header().Add("Access-Control-Allow-Origin", "*")
 	// Get the url query string parameter?
 	requestQuery := r.URL.Path
 	if len(requestQuery) == 0 {
-		log.Fatal(http.StatusBadRequest)
+		w.Write([]byte(strconv.Itoa(http.StatusBadRequest)))
 	}
 	stream, err := fetchHTML(requestQuery)
 	if err != nil {
-		log.Fatal(err)
+		w.Write([]byte(err.Error()))
 	}
 	summary, err := extractSummary(requestQuery, stream)
 	if err != nil {
-		log.Fatal(err)
+		w.Write([]byte(err.Error()))
 	}
 
-	log.Print(summary)
+	err = json.NewEncoder(w).Encode(summary)
+	if err != nil {
+		w.Write([]byte(err.Error()))
+	}
 }
 
 //fetchHTML fetches `pageURL` and returns the body stream or an error.
@@ -134,6 +139,7 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 	defer htmlStream.Close()
 	tokenizer := html.NewTokenizer(htmlStream)
 	summaryData := &PageSummary{}
+	image := &PreviewImage{}
 	for {
 		tokenType := tokenizer.Next()
 		if tokenType == html.ErrorToken {
@@ -143,7 +149,6 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 			}
 			log.Fatalf("error tokenizing HTML: %v", tokenizer.Err())
 		}
-		// TODO: Opengraph, OG images, relative image/icon url, empty input
 		if tokenType == html.StartTagToken || tokenType == html.SelfClosingTagToken {
 			token := tokenizer.Token()
 			switch tag := token.Data; tag {
@@ -185,10 +190,30 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 						value, _ := mapValues["content"]
 						summaryData.Description = value
 					case "og:image":
-						previewImage := &PreviewImage{}
+						if len(image.URL) != 0 {
+							summaryData.Images = append(summaryData.Images, image)
+							image = &PreviewImage{}
+						}
 						value, _ := mapValues["content"]
-						previewImage.URL = value
-						// TODO: Figure out image
+						url := absoluteURL(pageURL, value)
+						image.URL = url
+					case "og:image:secure_url":
+						value, _ := mapValues["content"]
+						image.SecureURL = value
+					case "og:image:type":
+						value, _ := mapValues["content"]
+						image.Type = value
+					case "og:image:width":
+						value, _ := mapValues["content"]
+						val, _ := strconv.Atoi(value)
+						image.Width = val
+					case "og:image:height":
+						value, _ := mapValues["content"]
+						val, _ := strconv.Atoi(value)
+						image.Height = val
+					case "og:image:alt":
+						value, _ := mapValues["content"]
+						image.Alt = value
 					}
 				}
 
@@ -222,7 +247,8 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 					}
 					// Href
 					if attr.Key == "href" {
-						previewImage.URL = attr.Val
+						href := absoluteURL(pageURL, attr.Val)
+						previewImage.URL = href
 					}
 					// Type
 					if attr.Key == "type" {
@@ -258,5 +284,18 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 			}
 		}
 	}
+	// If there is data in image, append to images array
+	if len(image.URL) != 0 {
+		summaryData.Images = append(summaryData.Images, image)
+	}
 	return summaryData, nil
+}
+
+func absoluteURL(pageURL string, href string) string {
+	if strings.HasPrefix(href, "/") {
+		splitURL := strings.Split(pageURL, "/")
+		base := strings.Join(splitURL[0:3], "/")
+		href = base + href
+	}
+	return href
 }
