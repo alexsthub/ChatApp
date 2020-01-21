@@ -143,39 +143,78 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 			}
 			log.Fatalf("error tokenizing HTML: %v", tokenizer.Err())
 		}
-		// TODO: process the token according to the token type...
+		// TODO: Opengraph, OG images, relative image/icon url, empty input
 		if tokenType == html.StartTagToken || tokenType == html.SelfClosingTagToken {
 			token := tokenizer.Token()
 			switch tag := token.Data; tag {
 			case "title":
 				tokenType = tokenizer.Next()
 				if tokenType == html.TextToken {
-					summaryData.Title = tokenizer.Token().Data
+					if summaryData.Title == "" {
+						summaryData.Title = tokenizer.Token().Data
+					}
 				}
 			case "meta":
-				// for _, attr := range token.Attr {
-				// 	if attr.Key == "property" && attr.Val == "og:type" {
-				// 		found := true
-				// 	}
-				// 	if attr.Key == "content" {
-				// 		value := attr.Val
-				// 	}
-				// }
-
+				// Retrieve basic property/name to value
+				mapValues := map[string]string{}
 				for _, attr := range token.Attr {
-					if attr.Key == "name" && attr.Val == "keywords" {
-						// Put this somewhere
+					if attr.Key == "property" || attr.Key == "name" {
+						mapValues[attr.Key] = attr.Val
 					}
 					if attr.Key == "content" {
-						keywordString := attr.Val
-						keywords := strings.Split(keywordString, ",")
+						mapValues[attr.Key] = attr.Val
+					}
+				}
+
+				key, exists := mapValues["property"]
+				if exists {
+					switch key {
+					case "og:type":
+						value, _ := mapValues["content"]
+						summaryData.Type = value
+					case "og:url":
+						value, _ := mapValues["content"]
+						summaryData.URL = value
+					case "og:title":
+						value, _ := mapValues["content"]
+						summaryData.Title = value
+					case "og:site_name":
+						value, _ := mapValues["content"]
+						summaryData.SiteName = value
+					case "og:description":
+						value, _ := mapValues["content"]
+						summaryData.Description = value
+					case "og:image":
+						previewImage := &PreviewImage{}
+						value, _ := mapValues["content"]
+						previewImage.URL = value
+						// TODO: Figure out image
+					}
+				}
+
+				key, exists = mapValues["name"]
+				if exists {
+					switch key {
+					case "keywords":
+						value, _ := mapValues["content"]
+						keywords := strings.Split(value, ",")
 						for i := range keywords {
 							keywords[i] = strings.TrimSpace(keywords[i])
 						}
+						summaryData.Keywords = keywords
+					case "description":
+						value, _ := mapValues["content"]
+						if summaryData.Description == "" {
+							summaryData.Description = value
+						}
+					case "author":
+						value, _ := mapValues["content"]
+						summaryData.Author = value
 					}
 				}
+
 			case "link":
-				previewImage := PreviewImage{}
+				previewImage := &PreviewImage{}
 				for _, attr := range token.Attr {
 					// Make sure it is the icon
 					if attr.Key == "rel" && attr.Val == "icon" {
@@ -207,7 +246,7 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 					}
 
 				}
-				log.Print(previewImage)
+				summaryData.Icon = previewImage
 			}
 		}
 
