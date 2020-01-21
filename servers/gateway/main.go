@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -27,8 +28,10 @@ func main() {
 		addr = ":4000"
 	}
 
+	fmt.Println(addr)
+
 	mux := http.NewServeMux()
-	mux.Handle("v1/summary", handlers.SummaryHandler())
+	mux.HandleFunc("/v1/summary", handlers.SummaryHandler)
 
 	log.Printf("server is listening on port %s", addr)
 	log.Fatal(http.ListenAndServe(addr, mux))

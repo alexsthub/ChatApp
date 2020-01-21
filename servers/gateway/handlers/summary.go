@@ -64,20 +64,23 @@ func SummaryHandler(w http.ResponseWriter, r *http.Request) {
 	https://golang.org/pkg/encoding/json/#NewEncoder
 	*/
 
-	//
+	// TODO: fmt.Print()
+	fmt.Println("HELLO")
+	fmt.Printf("Starting method %s", "test")
 	w.Header().Add("Access-Control-Allow-Origin", "*")
 	// Get the url query string parameter?
-	requestQuery := r.URL.Path
+	requestQuery := r.URL.Query().Get("url")
 	if len(requestQuery) == 0 {
 		w.Write([]byte(strconv.Itoa(http.StatusBadRequest)))
 	}
+	log.Print("Made it")
 	stream, err := fetchHTML(requestQuery)
 	if err != nil {
-		w.Write([]byte(err.Error()))
+		w.Write([]byte("1"))
 	}
 	summary, err := extractSummary(requestQuery, stream)
 	if err != nil {
-		w.Write([]byte(err.Error()))
+		w.Write([]byte("2"))
 	}
 
 	err = json.NewEncoder(w).Encode(summary)
