@@ -9,7 +9,8 @@ export default class App extends React.Component {
       query: "",
       title: "",
       description: "",
-      images: []
+      images: [],
+      error: ""
     };
   }
 
@@ -22,15 +23,22 @@ export default class App extends React.Component {
         return response.json();
       })
       .catch(err => {
-        console.log(err);
+        this.setState({
+          query: "",
+          title: "",
+          description: "",
+          images: [],
+          error: err.message
+        });
       })
       .then(data => {
-        console.log(data);
-        this.setState({
-          title: data.title ? data.title : "",
-          description: data.description ? data.description : "",
-          images: data.images ? data.images : []
-        });
+        if (data) {
+          this.setState({
+            title: data.title ? data.title : "",
+            description: data.description ? data.description : "",
+            images: data.images ? data.images : []
+          });
+        }
       })
       .catch(error => {
         console.log(error);
@@ -72,6 +80,10 @@ export default class App extends React.Component {
             required
           />
         </form>
+
+        {this.state.error !== "" ? (
+          <p style={{ color: "red" }}>Error: {this.state.error}</p>
+        ) : null}
 
         {this.state.title !== "" ? (
           <div>

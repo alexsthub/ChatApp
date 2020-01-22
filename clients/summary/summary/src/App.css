@@ -7,6 +7,10 @@
   font-family: 'Montserrat', sans-serif;
 }
 
+.error {
+  color: 'red'
+}
+
 .input {
   height: 100px;
   width: 100px;
