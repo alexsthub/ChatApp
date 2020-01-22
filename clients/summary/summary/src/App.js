@@ -1,12 +1,7 @@
 import React from "react";
 import "./App.css";
 
-// When the server responds, your client-side JavaScript must render the summary data to the page as HTML elements.
-// You must render at least the title and description properties in the returned JSON, as well as all the images in the images array.
-// When rendering those images, you must render them using <img src="..."> elements, putting the image's URL into the element's src
-// attribute. Remember that for some pages, some of these properties will be missing, so handle that condition gracefully.
-// Any errors returned by your API should be communicated to the user (i.e., actually show the error message to the user,
-// don't just write it to the console).
+// TODO: How to I get the errors to show up from the server?
 export default class App extends React.Component {
   constructor(props) {
     super(props);
@@ -18,16 +13,27 @@ export default class App extends React.Component {
     };
   }
 
-  // TODO: Fill out shit
-  requestData = () => {
+  requestData = event => {
+    event.preventDefault();
     const { query } = this.state;
     const fetchQuery = "http://localhost:4000/v1/summary/?url=" + query;
     fetch(fetchQuery)
-      .then(data => {
-        console.log(data);
+      .then(response => {
+        return response.json();
       })
       .catch(err => {
         console.log(err);
+      })
+      .then(data => {
+        console.log(data);
+        this.setState({
+          title: data.title ? data.title : "",
+          description: data.description ? data.description : "",
+          images: data.images ? data.images : []
+        });
+      })
+      .catch(error => {
+        console.log(error);
       });
   };
 
@@ -37,6 +43,22 @@ export default class App extends React.Component {
   };
 
   render() {
+    const images =
+      this.state.images.length !== 0 ? (
+        <div className="image-container">
+          <p>Images:</p>
+          {this.state.images.map(image => {
+            return (
+              <img
+                className="image"
+                src={image.url}
+                alt={image.alt ? image.alt : ""}
+                key={image.url}
+              />
+            );
+          })}
+        </div>
+      ) : null;
     return (
       <div className="App">
         <form onSubmit={this.requestData}>
@@ -63,9 +85,7 @@ export default class App extends React.Component {
           </div>
         ) : null}
 
-        <div className="image-container">
-          <p>Images:</p>
-        </div>
+        {images}
       </div>
     );
   }

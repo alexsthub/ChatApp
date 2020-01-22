@@ -104,7 +104,7 @@ func fetchHTML(pageURL string) (io.ReadCloser, error) {
 	*/
 	resp, err := http.Get(pageURL)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("Cannot perform request. Invalid URL")
 	}
 
 	if resp.StatusCode != http.StatusOK {
