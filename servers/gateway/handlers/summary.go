@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -71,11 +70,11 @@ func SummaryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	stream, err := fetchHTML(requestQuery)
 	if err != nil {
-		w.Write([]byte("1"))
+		w.Write([]byte(err.Error()))
 	}
 	summary, err := extractSummary(requestQuery, stream)
 	if err != nil {
-		w.Write([]byte("2"))
+		w.Write([]byte(err.Error()))
 	}
 
 	err = json.NewEncoder(w).Encode(summary)
@@ -145,7 +144,6 @@ func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, err
 			if err == io.EOF {
 				break
 			}
-			log.Fatalf("error tokenizing HTML: %v", tokenizer.Err())
 		}
 		if tokenType == html.StartTagToken || tokenType == html.SelfClosingTagToken {
 			token := tokenizer.Token()
