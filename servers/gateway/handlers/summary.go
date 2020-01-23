@@ -40,41 +40,31 @@ type PageSummary struct {
 //a JSON-encoded PageSummary struct containing the page summary
 //meta-data.
 func SummaryHandler(w http.ResponseWriter, r *http.Request) {
-	/*TODO: add code and additional functions to do the following:
-	- Add an HTTP header to the response with the name
-	 `Access-Control-Allow-Origin` and a value of `*`. This will
-	  allow cross-origin AJAX requests to your server.
-	- Get the `url` query string parameter value from the request.
-	  If not supplied, respond with an http.StatusBadRequest error.
-	- Call fetchHTML() to fetch the requested URL. See comments in that
-	  function for more details.
-	- Call extractSummary() to extract the page summary meta-data,
-	  as directed in the assignment. See comments in that function
-	  for more details
-	- Close the response HTML stream so that you don't leak resources.
-	- Finally, respond with a JSON-encoded version of the PageSummary
-	  struct. That way the client can easily parse the JSON back into
-	  an object. Remember to tell the client that the response content
-		type is JSON.
-
-	Helpful Links:
-	https://golang.org/pkg/net/http/#Request.FormValue
-	https://golang.org/pkg/net/http/#Error
-	https://golang.org/pkg/encoding/json/#NewEncoder
+	/*
+		Helpful Links:
+		https://golang.org/pkg/net/http/#Request.FormValue
+		https://golang.org/pkg/net/http/#Error
+		https://golang.org/pkg/encoding/json/#NewEncoder
 	*/
 
 	w.Header().Add("Access-Control-Allow-Origin", "*")
 	requestQuery := r.URL.Query().Get("url")
 	if len(requestQuery) == 0 {
-		w.Write([]byte(strconv.Itoa(http.StatusBadRequest)))
+		// w.Write([]byte(strconv.Itoa(http.StatusBadRequest)))
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
 	}
 	stream, err := fetchHTML(requestQuery)
 	if err != nil {
-		w.Write([]byte(err.Error()))
+		// w.Write([]byte(err.Error()))
+		http.Error(w, err.Error(), 400)
+		return
 	}
 	summary, err := extractSummary(requestQuery, stream)
 	if err != nil {
-		w.Write([]byte(err.Error()))
+		// w.Write([]byte(err.Error()))
+		http.Error(w, err.Error(), 500)
+		return
 	}
 
 	err = json.NewEncoder(w).Encode(summary)

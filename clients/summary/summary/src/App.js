@@ -36,7 +36,8 @@ export default class App extends React.Component {
           this.setState({
             title: data.title ? data.title : "",
             description: data.description ? data.description : "",
-            images: data.images ? data.images : []
+            images: data.images ? data.images : [],
+            error: ""
           });
         }
       })
