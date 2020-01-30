@@ -17,7 +17,7 @@ export default class App extends React.Component {
   requestData = event => {
     event.preventDefault();
     const { query } = this.state;
-    const fetchQuery = "http://localhost:4000/v1/summary/?url=" + query;
+    const fetchQuery = "https://api.alexst.me/v1/summary/?url=" + query;
     fetch(fetchQuery)
       .then(response => {
         return response.json();

@@ -8,5 +8,4 @@ ADD default.conf /etc/nginx/conf.d/default.conf
 COPY summary /summary
 # TODO: Copy the react folder?
 COPY ./summary /var/www
-EXPOSE 80 
-ENTRYPOINT [ "/gateway" ]
+EXPOSE 80 443

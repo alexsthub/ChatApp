@@ -1,15 +1,15 @@
-docker rm -f server
+docker rm -f summary
 
-docker pull alexsthub/server
+docker pull alexsthub/summary
 
 docker run \
   -d \
-  -e ADDR=:403 \
-  -p 403:403 -p 80:80\
-  -v /etc/letsencrypt \
+  -e ADDR=:443 \
+  -p 443:443 -p 80:80\
+  -v /etc/letsencrypt:/etc/letsencrypt:ro \
   -e TLSKEY="/etc/letsencrypt/live/alexst.me/privkey.pem" \
   -e TLSCERT="/etc/letsencrypt/live/alexst/me/fullchain.pem" \
-  --name server \
-  alexsthub/server
+  --name summary \
+  alexsthub/summary
 
 exit
