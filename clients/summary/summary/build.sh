@@ -1,6 +1,4 @@
-GOOS=linux go build
 docker build -t alexsthub/summary .
-go clean
 
 docker push alexsthub/summary
 
