@@ -4,11 +4,11 @@ docker pull alexsthub/gateway
 
 docker run \
   -d \
-  -e ADDR=:403 \
-  -p 403:403 \
-  -v /etc/letsencrypt \
-  -e TLSKEY="/etc/letsencrypt/live/your-host-name.com/privkey.pem" \
-  -e TLSCERT="/etc/letsencrypt/live/your-host-name.com/fullchain.pem" \
+  -e ADDR=:443 \
+  -p 443:443 \
+  -v /etc/letsencrypt:/etc/letsencrypt:ro \
+  -e TLSKEY="/etc/letsencrypt/live/api.alexst.me/privkey.pem" \
+  -e TLSCERT="/etc/letsencrypt/live/api.alexst.me/fullchain.pem" \
   --name gateway \
   alexsthub/gateway
 
