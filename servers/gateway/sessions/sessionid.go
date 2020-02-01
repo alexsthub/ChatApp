@@ -77,9 +77,8 @@ func ValidateID(id string, signingKey string) (SessionID, error) {
 	res := bytes.Compare(signature, existingSignature)
 	if res == 0 {
 		return SessionID(id), nil
-	} else {
-		return InvalidSessionID, ErrInvalidID
 	}
+	return InvalidSessionID, ErrInvalidID
 }
 
 //String returns a string representation of the sessionID
