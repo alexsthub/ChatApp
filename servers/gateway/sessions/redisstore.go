@@ -9,6 +9,8 @@ import (
 	"github.com/patrickmn/go-cache"
 )
 
+// TODO: Not sure why its not working
+
 //RedisStore represents a session.Store backed by redis.
 type RedisStore struct {
 	//Redis client used to talk to redis server.
@@ -19,8 +21,11 @@ type RedisStore struct {
 
 //NewRedisStore constructs a new RedisStore
 func NewRedisStore(client *redis.Client, sessionDuration time.Duration) *RedisStore {
-	//initialize and return a new RedisStore struct
-	return nil
+	store := &RedisStore{
+		Client:          client,
+		SessionDuration: sessionDuration,
+	}
+	return store
 }
 
 //Store implementation
