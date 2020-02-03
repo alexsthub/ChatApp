@@ -49,7 +49,7 @@ func NewSessionID(signingKey string) (SessionID, error) {
 		return InvalidSessionID, fmt.Errorf("Signing key may not be empty")
 	}
 
-	byteString, err := GenRandomBytes(32)
+	byteString, err := GenRandomBytes(idLength)
 	hasher := hmac.New(sha256.New, []byte(signingKey))
 	hasher.Write(byteString)
 	signature := hasher.Sum(nil)
@@ -65,15 +65,16 @@ func NewSessionID(signingKey string) (SessionID, error) {
 //and returns an error if invalid, or a SessionID if valid
 func ValidateID(id string, signingKey string) (SessionID, error) {
 	decode, _ := base64.URLEncoding.DecodeString(id)
-	idPortion := decode[0:32]
-
+	if len(decode) != signedLength {
+		return InvalidSessionID, ErrInvalidID
+	}
+	idPortion := decode[0:idLength]
 	// Get the hmac hash from the given id
 	hasher := hmac.New(sha256.New, []byte(signingKey))
 	hasher.Write(idPortion)
 	signature := hasher.Sum(nil)
 
-	existingSignature := decode[32:]
-
+	existingSignature := decode[idLength:]
 	res := bytes.Compare(signature, existingSignature)
 	if res == 0 {
 		return SessionID(id), nil

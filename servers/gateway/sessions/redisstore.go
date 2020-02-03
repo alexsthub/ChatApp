@@ -53,10 +53,12 @@ func (rs *RedisStore) Get(sid SessionID, sessionState interface{}) error {
 	//unmarshal it back into the `sessionState` parameter
 	//and reset the expiry time, so that it doesn't get deleted until
 	//the SessionDuration has elapsed.
-
 	prevSession, err := rs.Client.Get(sid.getRedisKey()).Result()
 	if err != nil {
-		return fmt.Errorf(err.Error())
+		if err == redis.Nil {
+			return ErrStateNotFound
+		}
+		return err
 	}
 	err = json.Unmarshal([]byte(prevSession), sessionState)
 	if err != nil {
