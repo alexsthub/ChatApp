@@ -1,6 +1,8 @@
 package users
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"net/mail"
 	"strings"
@@ -67,8 +69,11 @@ func (nu *NewUser) Validate() error {
 	if nu.Password != nu.PasswordConf {
 		return fmt.Errorf("Password and password confirmation do not match")
 	}
-	if len(nu.UserName) == 0 || strings.Contains(" ", nu.UserName) {
-		return fmt.Errorf("Username must not be empty and may not contain spaces")
+	if len(nu.UserName) == 0 {
+		return fmt.Errorf("Username must not be empty")
+	}
+	if strings.Contains(nu.UserName, " ") {
+		return fmt.Errorf("Username must not contain spaces")
 	}
 	return nil
 }
@@ -92,12 +97,17 @@ func (nu *NewUser) ToUser() (*User, error) {
 		return nil, err
 	}
 
+	cleanEmail := strings.ToLower(strings.TrimSpace(nu.Email))
+	hasher := md5.New()
+	hasher.Write([]byte(cleanEmail))
+	photoURL := gravatarBasePhotoURL + hex.EncodeToString(hasher.Sum(nil))
+
 	user := &User{
 		Email:     nu.Email,
 		UserName:  nu.UserName,
 		FirstName: nu.FirstName,
 		LastName:  nu.LastName,
-		PhotoURL:  gravatarBasePhotoURL + nu.Email,
+		PhotoURL:  photoURL,
 	}
 	user.SetPassword(nu.Password)
 
@@ -111,11 +121,11 @@ func (nu *NewUser) ToUser() (*User, error) {
 //this returns an empty string
 func (u *User) FullName() string {
 	if len(u.FirstName) != 0 && len(u.LastName) == 0 {
-		return u.FirstName
+		return strings.Title(u.FirstName)
 	} else if len(u.FirstName) == 0 && len(u.LastName) != 0 {
-		return u.LastName
+		return strings.Title(u.LastName)
 	} else if len(u.FirstName) != 0 && len(u.LastName) != 0 {
-		return u.FirstName + u.LastName
+		return strings.Title(u.FirstName) + " " + strings.Title(u.LastName)
 	} else {
 		return ""
 	}
@@ -129,7 +139,6 @@ func (u *User) SetPassword(password string) error {
 	}
 	u.PassHash = hash
 	return nil
-
 }
 
 //Authenticate compares the plaintext password against the stored hash
@@ -147,9 +156,6 @@ func (u *User) Authenticate(password string) error {
 //ApplyUpdates applies the updates to the user. An error
 //is returned if the updates are invalid
 func (u *User) ApplyUpdates(updates *Updates) error {
-	// TODO: Errors What could go wrong?
-	//set the fields of `u` to the values of the related
-	//field in the `updates` struct
 	if len(updates.FirstName) != 0 {
 		u.FirstName = updates.FirstName
 	}

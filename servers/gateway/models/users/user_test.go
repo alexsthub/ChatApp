@@ -1,11 +1,12 @@
 package users
 
-import "testing"
+import (
+	"testing"
+)
 
-//TODO: add tests for the various functions in user.go, as described in the assignment.
 //use `go test -cover` to ensure that you are covering all or nearly all of your code paths.
 
-func testValidate(t *testing.T) {
+func TestValidate(t *testing.T) {
 	cases := []struct {
 		TestName     string
 		Email        string
@@ -56,6 +57,26 @@ func testValidate(t *testing.T) {
 			"Tan",
 			true,
 		},
+		{
+			"Username cannot be empty",
+			"alext@gmail.com",
+			"password",
+			"password",
+			"",
+			"Alex",
+			"Tan",
+			true,
+		},
+		{
+			"Username cannot have spaces",
+			"alext@gmail.com",
+			"password",
+			"password",
+			"big man",
+			"Alex",
+			"Tan",
+			true,
+		},
 	}
 
 	for _, c := range cases {
@@ -78,11 +99,11 @@ func testValidate(t *testing.T) {
 }
 
 // TODO
-func testToUser(t *testing.T) {
+func TestToUser(t *testing.T) {
 
 }
 
-func testFullName(t *testing.T) {
+func TestFullName(t *testing.T) {
 	cases := []struct {
 		TestName      string
 		FirstName     string
@@ -113,6 +134,12 @@ func testFullName(t *testing.T) {
 			"",
 			"",
 		},
+		{
+			"Capitalize first letter",
+			"alex",
+			"tan",
+			"Alex Tan",
+		},
 	}
 	for _, c := range cases {
 		user := User{
@@ -126,7 +153,7 @@ func testFullName(t *testing.T) {
 	}
 }
 
-func testAuthenticate(t *testing.T) {
+func TestAuthenticate(t *testing.T) {
 	cases := []struct {
 		TestName    string
 		Password    string
@@ -165,7 +192,54 @@ func testAuthenticate(t *testing.T) {
 	}
 }
 
-// TODO
-func testApplyUpdates(t *testing.T) {
-
+func TestApplyUpdates(t *testing.T) {
+	cases := []struct {
+		TestName      string
+		NewFirstName  string
+		NewLastName   string
+		ExpectedValue string
+	}{
+		{
+			"Change Both First And Last",
+			"John",
+			"Smith",
+			"John Smith",
+		},
+		{
+			"Change Just First",
+			"John",
+			"",
+			"John Tan",
+		},
+		{
+			"Change Just Last",
+			"",
+			"Smith",
+			"Alex Smith",
+		},
+		{
+			"Change nothing",
+			"",
+			"",
+			"Alex Tan",
+		},
+	}
+	for _, c := range cases {
+		user := User{
+			FirstName: "Alex",
+			LastName:  "Tan",
+		}
+		updates := &Updates{
+			FirstName: c.NewFirstName,
+			LastName:  c.NewLastName,
+		}
+		err := user.ApplyUpdates(updates)
+		if err != nil {
+			t.Errorf("case %s: didn't expect error but got one\n", c.TestName)
+		}
+		fullName := user.FullName()
+		if fullName != c.ExpectedValue {
+			t.Errorf("case %s: expected value %s but got %s\n", c.TestName, c.ExpectedValue, fullName)
+		}
+	}
 }
