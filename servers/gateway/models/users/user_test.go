@@ -1,10 +1,13 @@
 package users
 
 import (
+	"crypto/md5"
+	"encoding/hex"
+	"strings"
 	"testing"
-)
 
-//use `go test -cover` to ensure that you are covering all or nearly all of your code paths.
+	"golang.org/x/crypto/bcrypt"
+)
 
 func TestValidate(t *testing.T) {
 	cases := []struct {
@@ -100,7 +103,59 @@ func TestValidate(t *testing.T) {
 
 // TODO
 func TestToUser(t *testing.T) {
+	cases := []struct {
+		TestName     string
+		Email        string
+		Username     string
+		Password     string
+		PasswordConf string
+		ExpectError  bool
+	}{
+		{
+			"Correct email hashing for photoURL",
+			"alextan785@gmail.com",
+			"exampleusername",
+			"password",
+			"password",
+			false,
+		},
+		{
+			"Correct password hashing",
+			"alextan785@gmail.com",
+			"exampleusername",
+			"password",
+			"password",
+			false,
+		},
+	}
 
+	for _, c := range cases {
+		newUser := NewUser{
+			Email:        c.Email,
+			UserName:     c.Username,
+			Password:     c.Password,
+			PasswordConf: c.PasswordConf,
+		}
+		user, err := newUser.ToUser()
+		if err != nil && !c.ExpectError {
+			t.Errorf("case %s: unexpected error validating user: %v\n", c.TestName, err)
+		}
+		// Check if c.Email is the same as photoURL after hashing
+		photoURL := user.PhotoURL
+		cleanEmail := strings.ToLower(strings.TrimSpace(c.Email))
+		hasher := md5.New()
+		hasher.Write([]byte(cleanEmail))
+		testURL := gravatarBasePhotoURL + hex.EncodeToString(hasher.Sum(nil))
+		if photoURL != testURL {
+			t.Errorf("case %s: expected %s but got %s", c.TestName, testURL, photoURL)
+		}
+
+		// Check if the hashed password is correct
+		err = bcrypt.CompareHashAndPassword(user.PassHash, []byte(newUser.Password))
+		if err != nil && !c.ExpectError {
+			t.Errorf("case %s: unexpected error comparing password hash: %v\n", c.TestName, err)
+		}
+	}
 }
 
 func TestFullName(t *testing.T) {
