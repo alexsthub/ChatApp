@@ -1,3 +1,7 @@
+CREATE DATABASE usersDB;
+
+USE usersDB;
+
 create table if not exists users
 (
   id int not null auto_increment primary key,
@@ -7,6 +11,12 @@ create table if not exists users
   pass_hash char(64) not null,
   username varchar(255) not null,
   photo_url varchar(255) not null,
-  UNIQUE KEY unique_email (email)
-  UNIQUE KEY unique_username (username)
+  UNIQUE KEY(email),
+  unique key(username)
 );
+
+INSERT INTO users 
+(email, first_name, last_name, pass_hash, username, photo_url) 
+VALUES 
+("alextan785@gmail.com", "Alex", "Tan", "ASDIASJNDIUSANDIUSADNASIUD", "alextan785", "myexamplephotourl.com/avatar/alexst"),
+("test@gmail.com", "FirstTest", "LastTest", "MYPASSHASHBUTISITAGOODHASH", "TestingUser", "myexamplephotourl.com/avatar/test");

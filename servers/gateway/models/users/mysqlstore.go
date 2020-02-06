@@ -3,7 +3,7 @@ package users
 import (
 	"database/sql"
 	"fmt"
-	"os"
+	"log"
 
 	// Sql driver
 	_ "github.com/go-sql-driver/mysql"
@@ -18,21 +18,13 @@ type MySQLStore struct {
 // TODO: When you delete something that isn't there, whats the result
 
 // NewSQLStore opens a connection and constructs a MySqlStore
-func NewSQLStore(databaseName string) (*MySQLStore, error) {
-	mySQLPassword := os.Getenv("MYSQL_ROOT_PASSWORD")
-	if len(mySQLPassword) == 0 {
-		mySQLPassword = "password"
-		// return nil, fmt.Errorf("Password not found in environmental variables")
-	}
-	dsn := fmt.Sprintf("root:%s@tcp(127.0.0.1:3306)/%s", mySQLPassword, databaseName)
+func NewSQLStore(databaseName string, password string) (*MySQLStore, error) {
+	dsn := fmt.Sprintf("root:%s@tcp(127.0.0.1:3306)/%s", password, databaseName)
+	log.Println(dsn)
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("error opening database: %v", err)
 	}
-
-	//?ensure that the database gets closed when we are done
-	// defer db.Close()
-
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("error pinging database: %v", err)
 	}
@@ -41,42 +33,40 @@ func NewSQLStore(databaseName string) (*MySQLStore, error) {
 }
 
 //GetUserFromQuery takes a sql response and
-func GetUserFromQuery(res *sql.Rows) (*User, error) {
-	defer res.Close()
-	user := &User{}
+// func GetUserFromQuery(res *sql.Rows) (*User, error) {
+// 	defer res.Close()
+// 	user := &User{}
 
-	for res.Next() {
-		if err := res.Scan(user.ID, user.Email, user.FirstName, user.LastName, user.PassHash,
-			user.UserName, user.PhotoURL); err != nil {
-			return nil, fmt.Errorf("error scanning row: %v", err)
-		}
-	}
-	if err := res.Err(); err != nil {
-		return nil, fmt.Errorf("error getting next row %v", err)
-	}
-	return user, nil
-}
+// 	for res.Next() {
+// 		if err := res.Scan(user.ID, user.Email, user.FirstName, user.LastName, user.PassHash,
+// 			user.UserName, user.PhotoURL); err != nil {
+// 			return nil, fmt.Errorf("error scanning row: %v", err)
+// 		}
+// 	}
+// 	if err := res.Err(); err != nil {
+// 		return nil, fmt.Errorf("error getting next row %v", err)
+// 	}
+// 	return user, nil
+// }
 
 //GetByID returns the User with the given ID
 func (store *MySQLStore) GetByID(id int64) (*User, error) {
 	query := "SELECT * FROM users WHERE id = ?"
-
 	user := &User{}
-	err := store.db.QueryRow(query, id).Scan(&user)
+	err := store.db.QueryRow(query, id).Scan(&user.ID, &user.Email, &user.FirstName, &user.LastName, &user.PassHash,
+		&user.UserName, &user.PhotoURL)
 	if err != nil {
 		return nil, err
 	}
 	return user, nil
 }
 
-//GetByEmail returns the User with the given email
+// GetByEmail returns the User with the given email
 func (store *MySQLStore) GetByEmail(email string) (*User, error) {
 	query := "SELECT * FROM users WHERE email = '?'"
-	res, err := store.db.Query(query, email)
-	if err != nil {
-		return nil, err
-	}
-	user, err := GetUserFromQuery(res)
+	user := &User{}
+	err := store.db.QueryRow(query, email).Scan(&user.ID, &user.Email, &user.FirstName, &user.LastName, &user.PassHash,
+		&user.UserName, &user.PhotoURL)
 	if err != nil {
 		return nil, err
 	}
@@ -86,11 +76,9 @@ func (store *MySQLStore) GetByEmail(email string) (*User, error) {
 //GetByUserName returns the User with the given Username
 func (store *MySQLStore) GetByUserName(username string) (*User, error) {
 	query := "SELECT * FROM users WHERE username = '?'"
-	res, err := store.db.Query(query, username)
-	if err != nil {
-		return nil, err
-	}
-	user, err := GetUserFromQuery(res)
+	user := &User{}
+	err := store.db.QueryRow(query, username).Scan(&user.ID, &user.Email, &user.FirstName, &user.LastName, &user.PassHash,
+		&user.UserName, &user.PhotoURL)
 	if err != nil {
 		return nil, err
 	}

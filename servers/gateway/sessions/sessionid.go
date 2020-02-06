@@ -36,8 +36,8 @@ var ErrInvalidID = errors.New("Invalid Session ID")
 
 // GenRandomBytes generates random byte string of given size
 func GenRandomBytes(size int) (byteS []byte, err error) {
-	byteS = make([]byte, size)
-	_, err = rand.Read(byteS)
+	randB := make([]byte, size)
+	_, err = rand.Read(randB)
 	return
 }
 

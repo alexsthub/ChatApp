@@ -4,12 +4,10 @@ import (
 	"testing"
 )
 
-// TODO: Do i need to insert rows before deleting / selecting?
-
 func TestGetByID(t *testing.T) {
 	cases := []struct {
 		TestName    string
-		ID          int
+		ID          int64
 		ExpectError bool
 	}{
 		{
@@ -24,11 +22,11 @@ func TestGetByID(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		store, err := NewSQLStore("users")
+		store, err := NewSQLStore("usersDB", "databasepassword")
 		if err != nil {
 			t.Errorf("unexpected error getting database connection: %v", err)
 		}
-		_, err = store.GetByID(0)
+		_, err = store.GetByID(c.ID)
 		if err != nil && !c.ExpectError {
 			t.Errorf("case %s: unexpected error querying by id: %v", c.TestName, err)
 		}
@@ -36,11 +34,61 @@ func TestGetByID(t *testing.T) {
 }
 
 func TestGetByEmail(t *testing.T) {
-
+	cases := []struct {
+		TestName    string
+		Email       string
+		ExpectError bool
+	}{
+		{
+			"Correct userid",
+			"alextan785@gmail.com",
+			false,
+		},
+		{
+			"User ID does not exist",
+			"test@test.com",
+			true,
+		},
+	}
+	for _, c := range cases {
+		store, err := NewSQLStore("password", "usersDB")
+		if err != nil {
+			t.Errorf("unexpected error getting database connection: %v", err)
+		}
+		_, err = store.GetByEmail(c.Email)
+		if err != nil && !c.ExpectError {
+			t.Errorf("case %s: unexpected error querying by email: %v", c.TestName, err)
+		}
+	}
 }
 
 func TestGetByUsername(t *testing.T) {
-
+	cases := []struct {
+		TestName    string
+		UserName    string
+		ExpectError bool
+	}{
+		{
+			"Correct userid",
+			"alextan785",
+			false,
+		},
+		{
+			"User ID does not exist",
+			"doomedtofail",
+			true,
+		},
+	}
+	for _, c := range cases {
+		store, err := NewSQLStore("password", "usersDB")
+		if err != nil {
+			t.Errorf("unexpected error getting database connection: %v", err)
+		}
+		_, err = store.GetByEmail(c.UserName)
+		if err != nil && !c.ExpectError {
+			t.Errorf("case %s: unexpected error querying by username: %v", c.TestName, err)
+		}
+	}
 }
 
 func TestInsert(t *testing.T) {
@@ -77,7 +125,7 @@ func TestInsert(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		store, err := NewSQLStore("users")
+		store, err := NewSQLStore("password", "usersDB")
 		if err != nil {
 			t.Errorf("unexpected error getting database connection: %v", err)
 		}
@@ -128,7 +176,7 @@ func TestDelete(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		store, err := NewSQLStore("users")
+		store, err := NewSQLStore("password", "usersDB")
 		if err != nil {
 			t.Errorf("unexpected error getting database connection: %v", err)
 		}
