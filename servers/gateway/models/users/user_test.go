@@ -101,7 +101,6 @@ func TestValidate(t *testing.T) {
 	}
 }
 
-// TODO
 func TestToUser(t *testing.T) {
 	cases := []struct {
 		TestName     string
