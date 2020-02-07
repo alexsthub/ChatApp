@@ -3,7 +3,6 @@ package users
 import (
 	"database/sql"
 	"fmt"
-	"log"
 
 	// Sql driver
 	_ "github.com/go-sql-driver/mysql"
@@ -14,13 +13,9 @@ type MySQLStore struct {
 	db *sql.DB
 }
 
-// TODO: If values are empty, is it considered a null value or empty string
-// TODO: When you delete something that isn't there, whats the result
-
 // NewSQLStore opens a connection and constructs a MySqlStore
 func NewSQLStore(databaseName string, password string) (*MySQLStore, error) {
 	dsn := fmt.Sprintf("root:%s@tcp(127.0.0.1:3306)/%s", password, databaseName)
-	log.Println(dsn)
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("error opening database: %v", err)
@@ -31,23 +26,6 @@ func NewSQLStore(databaseName string, password string) (*MySQLStore, error) {
 	store := &MySQLStore{db: db}
 	return store, nil
 }
-
-//GetUserFromQuery takes a sql response and
-// func GetUserFromQuery(res *sql.Rows) (*User, error) {
-// 	defer res.Close()
-// 	user := &User{}
-
-// 	for res.Next() {
-// 		if err := res.Scan(user.ID, user.Email, user.FirstName, user.LastName, user.PassHash,
-// 			user.UserName, user.PhotoURL); err != nil {
-// 			return nil, fmt.Errorf("error scanning row: %v", err)
-// 		}
-// 	}
-// 	if err := res.Err(); err != nil {
-// 		return nil, fmt.Errorf("error getting next row %v", err)
-// 	}
-// 	return user, nil
-// }
 
 //GetByID returns the User with the given ID
 func (store *MySQLStore) GetByID(id int64) (*User, error) {
@@ -63,7 +41,7 @@ func (store *MySQLStore) GetByID(id int64) (*User, error) {
 
 // GetByEmail returns the User with the given email
 func (store *MySQLStore) GetByEmail(email string) (*User, error) {
-	query := "SELECT * FROM users WHERE email = '?'"
+	query := "SELECT * FROM users WHERE email = ?"
 	user := &User{}
 	err := store.db.QueryRow(query, email).Scan(&user.ID, &user.Email, &user.FirstName, &user.LastName, &user.PassHash,
 		&user.UserName, &user.PhotoURL)
@@ -75,7 +53,7 @@ func (store *MySQLStore) GetByEmail(email string) (*User, error) {
 
 //GetByUserName returns the User with the given Username
 func (store *MySQLStore) GetByUserName(username string) (*User, error) {
-	query := "SELECT * FROM users WHERE username = '?'"
+	query := "SELECT * FROM users WHERE username = ?"
 	user := &User{}
 	err := store.db.QueryRow(query, username).Scan(&user.ID, &user.Email, &user.FirstName, &user.LastName, &user.PassHash,
 		&user.UserName, &user.PhotoURL)
@@ -89,18 +67,23 @@ func (store *MySQLStore) GetByUserName(username string) (*User, error) {
 //the newly-inserted User, complete with the DBMS-assigned ID
 func (store *MySQLStore) Insert(user *User) (*User, error) {
 	query := "INSERT INTO users (email, first_name, last_name, pass_hash, username, photo_url) VALUES (?, ?, ?, ?, ?, ?)"
-	_, err := store.db.Exec(query, user.Email, user.FirstName, user.LastName, user.PassHash, user.UserName, user.PhotoURL)
+	res, err := store.db.Exec(query, user.Email, user.FirstName, user.LastName, user.PassHash, user.UserName, user.PhotoURL)
 	if err != nil {
 		return nil, err
 	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+	user.ID = id
 	return user, nil
 }
 
 //Update applies UserUpdates to the given user ID
 //and returns the newly-updated user
 func (store *MySQLStore) Update(id int64, updates *Updates) (*User, error) {
-	query := "UPDATE users SET first_name = '?', last_name = '?' WHERE id = ?"
-	_, err := store.db.Exec(query, updates.FirstName, updates.LastName)
+	query := "UPDATE users SET first_name = ?, last_name = ? WHERE id = ?"
+	_, err := store.db.Exec(query, updates.FirstName, updates.LastName, id)
 	if err != nil {
 		return nil, err
 	}

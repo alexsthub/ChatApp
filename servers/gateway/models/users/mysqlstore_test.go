@@ -51,7 +51,7 @@ func TestGetByEmail(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		store, err := NewSQLStore("password", "usersDB")
+		store, err := NewSQLStore("usersDB", "databasepassword")
 		if err != nil {
 			t.Errorf("unexpected error getting database connection: %v", err)
 		}
@@ -69,7 +69,7 @@ func TestGetByUsername(t *testing.T) {
 		ExpectError bool
 	}{
 		{
-			"Correct userid",
+			"Correct username",
 			"alextan785",
 			false,
 		},
@@ -80,11 +80,11 @@ func TestGetByUsername(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		store, err := NewSQLStore("password", "usersDB")
+		store, err := NewSQLStore("usersDB", "databasepassword")
 		if err != nil {
 			t.Errorf("unexpected error getting database connection: %v", err)
 		}
-		_, err = store.GetByEmail(c.UserName)
+		_, err = store.GetByUserName(c.UserName)
 		if err != nil && !c.ExpectError {
 			t.Errorf("case %s: unexpected error querying by username: %v", c.TestName, err)
 		}
@@ -104,7 +104,7 @@ func TestInsert(t *testing.T) {
 	}{
 		{
 			"Working insert",
-			"alextan785@gmail.com",
+			"butt@gmail.com",
 			"Alex",
 			"Tan",
 			"alextan1000",
@@ -112,20 +112,10 @@ func TestInsert(t *testing.T) {
 			"password",
 			false,
 		},
-		{
-			"Null Values",
-			"alextan785@gmail.com",
-			"Alex",
-			"Tan",
-			"blahblahblah",
-			"password",
-			"password",
-			true,
-		},
 	}
 
 	for _, c := range cases {
-		store, err := NewSQLStore("password", "usersDB")
+		store, err := NewSQLStore("usersDB", "databasepassword")
 		if err != nil {
 			t.Errorf("unexpected error getting database connection: %v", err)
 		}
@@ -142,19 +132,64 @@ func TestInsert(t *testing.T) {
 			t.Errorf("case %s: problem making new user: %v", c.TestName, err)
 		}
 
-		if c.TestName == "Null Values" {
-			user.Email = ""
-		}
-
 		user, err = store.Insert(user)
 		if err != nil && !c.ExpectError {
 			t.Errorf("case %s: unexpected error inserting: %v", c.TestName, err)
+		}
+		if err == nil && c.ExpectError {
+			t.Errorf("case %s: expected error inserting row: %v", c.TestName, err)
 		}
 	}
 }
 
 func TestUpdate(t *testing.T) {
-
+	cases := []struct {
+		TestName        string
+		FirstNameUpdate string
+		LastNameUpdate  string
+	}{
+		{
+			"Update first and last",
+			"Peter",
+			"Long",
+		},
+		{
+			"Update just first",
+			"Jerry",
+			"",
+		},
+		{
+			"Update last",
+			"",
+			"Lee",
+		},
+		{
+			"Update none",
+			"",
+			"",
+		},
+	}
+	store, err := NewSQLStore("usersDB", "databasepassword")
+	if err != nil {
+		t.Errorf("unexpected error getting database connection: %v", err)
+	}
+	for _, c := range cases {
+		update := &Updates{
+			FirstName: c.FirstNameUpdate,
+			LastName:  c.LastNameUpdate,
+		}
+		fakeUser := User{
+			FirstName: c.FirstNameUpdate,
+			LastName:  c.LastNameUpdate,
+		}
+		user, err := store.Update(2, update)
+		if err != nil {
+			t.Errorf("unexpected error updating row: %v", err)
+		}
+		if user.FullName() != fakeUser.FullName() {
+			t.Errorf("case %s: expected %s but got %s", c.TestName, fakeUser.FullName(), user.FullName())
+		}
+	}
 }
 
 func TestDelete(t *testing.T) {
@@ -165,37 +200,27 @@ func TestDelete(t *testing.T) {
 	}{
 		{
 			"Correct userid",
-			1,
+			0,
 			false,
 		},
 		{
 			"User ID does not exist",
 			1000000000,
-			true,
+			false,
 		},
 	}
 
 	for _, c := range cases {
-		store, err := NewSQLStore("password", "usersDB")
+		store, err := NewSQLStore("usersDB", "databasepassword")
 		if err != nil {
 			t.Errorf("unexpected error getting database connection: %v", err)
 		}
-		user := &User{
-			Email:     "alextan785@gmail.com",
-			PassHash:  []byte("AOSDNASODNASIDOASNNSOSAND"),
-			UserName:  "MyUsername",
-			FirstName: "Alex",
-			LastName:  "Tan",
-			PhotoURL:  "RandomPlaceholderPhotoURL",
-		}
-		user, err = store.Insert(user)
-		if err != nil {
-			t.Errorf("case %s: unexpected error inserting: %v", c.TestName, err)
-		}
-
 		err = store.Delete(c.ID)
 		if err != nil && !c.ExpectError {
 			t.Errorf("case %s: unexpected error deleting row: %v", c.TestName, err)
+		}
+		if err == nil && c.ExpectError {
+			t.Errorf("case %s: expected error deleting row: %v", c.TestName, err)
 		}
 	}
 }
