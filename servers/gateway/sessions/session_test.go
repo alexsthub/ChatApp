@@ -52,6 +52,7 @@ func TestSessionGetSessionID(t *testing.T) {
 		req, _ := http.NewRequest("GET", "/", nil)
 		req.Header.Add(headerAuthorization, c.header)
 		sidRet, err := GetSessionID(req, key)
+
 		if err != nil && !c.expectError {
 			t.Errorf("case %s: unexpected error: %v\nHINT: %s", c.name, err, c.hint)
 		}
