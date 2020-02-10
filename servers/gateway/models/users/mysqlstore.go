@@ -14,8 +14,7 @@ type MySQLStore struct {
 }
 
 // NewSQLStore opens a connection and constructs a MySqlStore
-func NewSQLStore(databaseName string, password string) (*MySQLStore, error) {
-	dsn := fmt.Sprintf("root:%s@tcp(127.0.0.1:3306)/%s", password, databaseName)
+func NewSQLStore(dsn string) (*MySQLStore, error) {
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("error opening database: %v", err)

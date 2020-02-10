@@ -4,8 +4,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/UW-Info-441-Winter-Quarter-2020/homework-alexsthub/servers/gateway/handlers"
+	"github.com/UW-Info-441-Winter-Quarter-2020/homework-alexsthub/servers/gateway/models/users"
+	"github.com/UW-Info-441-Winter-Quarter-2020/homework-alexsthub/servers/gateway/sessions"
+	"github.com/go-redis/redis"
 )
 
 //main is the main entry point for the server
@@ -17,13 +21,34 @@ func main() {
 	tlsKeyPath := os.Getenv("TLSKEY")
 	tlsCertPath := os.Getenv("TLSCERT")
 	if (len(tlsKeyPath) == 0) || (len(tlsCertPath) == 0) {
-		// If these environment variables are not set, write an error to standard out and exit the process with a non-zero code.
 		log.Fatal("TLS Environment Variables Not Set")
 	}
+
+	signingKey := os.Getenv("SESSIONKEY")
+	redisAddr := os.Getenv("REDISADDR")
+	dsn := os.Getenv("DSN")
+
+	sessionStore := sessions.NewRedisStore(redis.NewClient(&redis.Options{Addr: redisAddr}), time.Hour)
+	userStore, err := users.NewSQLStore(dsn)
+	if err != nil {
+		log.Fatal("Cannot connect to users database")
+	}
+	ctx := &handlers.ContextHandler{
+		SigningKey:   signingKey,
+		SessionStore: sessionStore,
+		UserStore:    userStore,
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/summary/", handlers.SummaryHandler)
+	mux.HandleFunc("/v1/users", ctx.UsersHandler)
+	mux.HandleFunc("/v1/users/", ctx.SpecificUsersHandler)
+	mux.HandleFunc("/v1/sessions", ctx.SessionsHandler)
+	mux.HandleFunc("/v1/sessions/", ctx.SpecificSessionsHandler)
+
+	wrappedMuxed := &handlers.CorsMW{Handler: mux}
 
 	log.Printf("server is listening on port %s", addr)
-	log.Fatal(http.ListenAndServeTLS(addr, tlsCertPath, tlsKeyPath, mux))
+	log.Fatal(http.ListenAndServeTLS(addr, tlsCertPath, tlsKeyPath, wrappedMuxed))
 
 }

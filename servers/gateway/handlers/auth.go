@@ -195,12 +195,11 @@ func (ctx *ContextHandler) SpecificSessionsHandler(w http.ResponseWriter, r *htt
 		if strings.ToLower(path.Base(r.URL.Path)) != "mine" {
 			http.Error(w, "Last path does not equal 'mine'", http.StatusForbidden)
 		}
-		sessionID, err := sessions.GetSessionID(r, ctx.SigningKey)
+		_, err := sessions.EndSession(r, ctx.SigningKey, ctx.SessionStore)
 		if err != nil {
 			w.Write([]byte(err.Error()))
 			return
 		}
-		ctx.SessionStore.Delete(sessionID)
 		w.Write([]byte("Signed Out"))
 	default:
 		http.Error(w, "", http.StatusMethodNotAllowed)
