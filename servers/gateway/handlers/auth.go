@@ -7,6 +7,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/UW-Info-441-Winter-Quarter-2020/homework-alexsthub/servers/gateway/models/users"
 	"github.com/UW-Info-441-Winter-Quarter-2020/homework-alexsthub/servers/gateway/sessions"
@@ -27,15 +28,7 @@ func (ctx *ContextHandler) UsersHandler(w http.ResponseWriter, r *http.Request) 
 			w.Write([]byte("Error unmarshalling new user from request: " + err.Error()))
 			return
 		}
-		// Begin session
-		sessionState := SessionState{}
-		sessionID, err := sessions.BeginSession(ctx.SigningKey, ctx.SessionStore, sessionState, w)
-		if err != nil {
-			w.Write([]byte("Error beginning session: " + err.Error()))
-			return
-		}
-		ctx.SessionStore.Save(sessionID, sessionState)
-		// Make user and save into users db
+		// Make a new user and add to db
 		user, err := newUser.ToUser()
 		if err != nil {
 			w.Write([]byte("Error making new user: " + err.Error()))
@@ -46,6 +39,14 @@ func (ctx *ContextHandler) UsersHandler(w http.ResponseWriter, r *http.Request) 
 			w.Write([]byte("Error inserting new user into the database: " + err.Error()))
 			return
 		}
+		// Begin session
+		sessionState := SessionState{User: user, Time: time.Now()}
+		_, err = sessions.BeginSession(ctx.SigningKey, ctx.SessionStore, sessionState, w)
+		if err != nil {
+			w.Write([]byte("Error beginning session: " + err.Error()))
+			return
+		}
+
 		// Respond to client
 		err = json.NewEncoder(w).Encode(user)
 		if err != nil {
@@ -64,13 +65,30 @@ func (ctx *ContextHandler) UsersHandler(w http.ResponseWriter, r *http.Request) 
 // SpecificUsersHandler handles requests for a specific user
 func (ctx *ContextHandler) SpecificUsersHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO: Current user must be authenticated
+	// ? Is session state populated now?
+	// ? Is this how you check if current user is authenticated?
+	sessionState := &SessionState{}
+	_, err := sessions.GetState(r, ctx.SigningKey, ctx.SessionStore, sessionState)
+	if err != nil {
+		// User is not authenticated
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
 
 	switch r.Method {
 	case "GET":
-		// TODO: get id
-		tempID := int64(1)
+		// ? Is this how I would get the userID
+		var userID int64
+		if base := path.Base(r.URL.Path); base == "me" {
+			userID = sessionState.User.ID
+		} else {
+			userID, err = strconv.ParseInt(base, 10, 64)
+			if err != nil {
+				w.Write([]byte("Cannot parse given user id"))
+			}
+		}
 
-		user, err := ctx.UserStore.GetByID(tempID)
+		user, err := ctx.UserStore.GetByID(userID)
 		if err != nil {
 			http.Error(w, "UserID does not exist", http.StatusMethodNotAllowed)
 			return
@@ -88,23 +106,14 @@ func (ctx *ContextHandler) SpecificUsersHandler(w http.ResponseWriter, r *http.R
 			http.Error(w, "Request body must be in JSON", http.StatusUnsupportedMediaType)
 			return
 		}
-
 		base := path.Base(r.URL.Path)
-		var sessionState SessionState
-		sessionID, err := sessions.GetSessionID(r, ctx.SigningKey)
-		if err != nil {
-			w.Write([]byte(err.Error()))
-			return
-		}
-		ctx.SessionStore.Get(sessionID, sessionState)
-		authenticatedUserID := sessionState.User.ID
 		if base != "me" {
 			// Assume base is the id and check if it matches
 			incomingID, err := strconv.ParseInt(base, 10, 64)
 			if err != nil {
 				w.Write([]byte(err.Error()))
 			}
-			if incomingID != authenticatedUserID {
+			if incomingID != sessionState.User.ID {
 				http.Error(w, "ID's do not match", http.StatusUnauthorized)
 			}
 		}
@@ -118,7 +127,7 @@ func (ctx *ContextHandler) SpecificUsersHandler(w http.ResponseWriter, r *http.R
 			w.Write([]byte("Error unmarshalling updates from request: " + err.Error()))
 			return
 		}
-		user, err := ctx.UserStore.Update(authenticatedUserID, updates)
+		user, err := ctx.UserStore.Update(sessionState.User.ID, updates)
 		if err != nil {
 			w.Write([]byte("Error updating user: " + err.Error()))
 			return
@@ -168,12 +177,11 @@ func (ctx *ContextHandler) SessionsHandler(w http.ResponseWriter, r *http.Reques
 		}
 		// Begin a new session
 		sessionState := SessionState{}
-		sessionID, err := sessions.BeginSession(ctx.SigningKey, ctx.SessionStore, sessionState, w)
+		_, err = sessions.BeginSession(ctx.SigningKey, ctx.SessionStore, sessionState, w)
 		if err != nil {
 			w.Write([]byte("Error beginning session: " + err.Error()))
 			return
 		}
-		ctx.SessionStore.Save(sessionID, sessionState)
 
 		err = json.NewEncoder(w).Encode(user)
 		if err != nil {

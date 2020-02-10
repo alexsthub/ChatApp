@@ -8,6 +8,6 @@ import (
 
 //SessionState tracks the time at which this session began and the authenticated users who started the session
 type SessionState struct {
-	Time *time.Time
+	Time time.Time
 	User *users.User
 }
