@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/UW-Info-441-Winter-Quarter-2020/homework-alexsthub/servers/gateway/models/users"
@@ -62,16 +63,13 @@ func (ctx *ContextHandler) UsersHandler(w http.ResponseWriter, r *http.Request) 
 
 // SpecificUsersHandler handles requests for a specific user
 func (ctx *ContextHandler) SpecificUsersHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Get userid
+	// TODO: Current user must be authenticated
+
 	switch r.Method {
 	case "GET":
-		// Get the user profile associated with the requested user ID from your store.
-		// If no user is found with that ID, respond with an http.StatusNotFound (404) status code, and a suitable message.
-		// Otherwise, respond to the client with:
-		// a status code of http.StatusOK (200).
-		// a response Content-Type header set to application/json to indicate that the response body is encoded as JSON
-		// the users.User struct returned by your store in the response body, encoded as a JSON object.
+		// TODO: get id
 		tempID := int64(1)
+
 		user, err := ctx.UserStore.GetByID(tempID)
 		if err != nil {
 			http.Error(w, "UserID does not exist", http.StatusMethodNotAllowed)
@@ -90,26 +88,37 @@ func (ctx *ContextHandler) SpecificUsersHandler(w http.ResponseWriter, r *http.R
 			http.Error(w, "Request body must be in JSON", http.StatusUnsupportedMediaType)
 			return
 		}
-		userID := path.Base(r.URL.Path)
-		if userID != "me" {
-			http.Error(w, "", http.StatusForbidden)
+
+		base := path.Base(r.URL.Path)
+		var sessionState SessionState
+		sessionID, err := sessions.GetSessionID(r, ctx.SigningKey)
+		if err != nil {
+			w.Write([]byte(err.Error()))
 			return
 		}
-
-		// TODO: match currently-authenticated user
-		// TODO: Convert string to int64
+		ctx.SessionStore.Get(sessionID, sessionState)
+		authenticatedUserID := sessionState.User.ID
+		if base != "me" {
+			// Assume base is the id and check if it matches
+			incomingID, err := strconv.ParseInt(base, 10, 64)
+			if err != nil {
+				w.Write([]byte(err.Error()))
+			}
+			if incomingID != authenticatedUserID {
+				http.Error(w, "ID's do not match", http.StatusUnauthorized)
+			}
+		}
 
 		// Assuming that this has no errors
 		updates := &users.Updates{}
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(r.Body)
-		err := json.Unmarshal(buf.Bytes(), updates)
+		err = json.Unmarshal(buf.Bytes(), updates)
 		if err != nil {
 			w.Write([]byte("Error unmarshalling updates from request: " + err.Error()))
 			return
 		}
-		// TODO: Update profile
-		user, err := ctx.UserStore.Update(userID, updates)
+		user, err := ctx.UserStore.Update(authenticatedUserID, updates)
 		if err != nil {
 			w.Write([]byte("Error updating user: " + err.Error()))
 			return
@@ -146,6 +155,7 @@ func (ctx *ContextHandler) SessionsHandler(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		// Find and authenticate user
+		// ?If you don't find the user profile, do something that would take about the same amount of time as authenticating
 		user, err := ctx.UserStore.GetByEmail(creds.Email)
 		if err != nil {
 			http.Error(w, "Invalid Credentials", http.StatusUnauthorized)
@@ -185,8 +195,13 @@ func (ctx *ContextHandler) SpecificSessionsHandler(w http.ResponseWriter, r *htt
 		if strings.ToLower(path.Base(r.URL.Path)) != "mine" {
 			http.Error(w, "Last path does not equal 'mine'", http.StatusForbidden)
 		}
-	// TODO: End session and respond with plain text message
-
+		sessionID, err := sessions.GetSessionID(r, ctx.SigningKey)
+		if err != nil {
+			w.Write([]byte(err.Error()))
+			return
+		}
+		ctx.SessionStore.Delete(sessionID)
+		w.Write([]byte("Signed Out"))
 	default:
 		http.Error(w, "", http.StatusMethodNotAllowed)
 		return
