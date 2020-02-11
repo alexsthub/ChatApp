@@ -5,13 +5,16 @@ export default class App extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      user: { FirstName: "Alex", lastname: "Tan" },
+      // user: { FirstName: "Alex", lastname: "Tan" },
+      user: null,
       showUpdate: false
     };
   }
 
   handleSignIn = (email, password) => {
     // TODO
+    this.setState({ user: { FirstName: "Alex", LastName: "Tan" } });
+    // alert("shit");
   };
 
   handleSignUp = (
@@ -23,19 +26,21 @@ export default class App extends React.Component {
     username
   ) => {
     // TODO:
+    // localStorage.setItem("Auth", "temp")
   };
 
   handleSignOut = () => {
     // TODO
-  };
-
-  handleUpdateChange = () => {
-    this.setState({ showUpdate: !this.state.showUpdate });
+    this.setState({ user: null });
   };
 
   handleUpdate = (fNameChange, lNameChange) => {
     // TODO
     this.setState({ showUpdate: false });
+  };
+
+  handleUpdateChange = () => {
+    this.setState({ showUpdate: !this.state.showUpdate });
   };
 
   render() {
@@ -52,7 +57,7 @@ export default class App extends React.Component {
             <p>Congratulations on signing in!</p>
             <p>
               Your name is {this.state.user.FirstName}{" "}
-              {this.state.user.lastname}
+              {this.state.user.LastName}
             </p>
 
             {!this.state.showUpdate ? (
