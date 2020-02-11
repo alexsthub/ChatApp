@@ -68,8 +68,11 @@ func SummaryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = json.NewEncoder(w).Encode(summary)
+	w.Header().Set("Content-Type", "application/json")
+
 	if err != nil {
 		w.Write([]byte(err.Error()))
+		return
 	}
 }
 
