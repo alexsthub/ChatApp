@@ -5,16 +5,39 @@ export default class App extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      // user: { FirstName: "Alex", lastname: "Tan" },
       user: null,
       showUpdate: false
     };
   }
 
   handleSignIn = (email, password) => {
-    // TODO
-    this.setState({ user: { FirstName: "Alex", LastName: "Tan" } });
-    // alert("shit");
+    fetch("https://api.alexst.me/v1/sessions", {
+      method: "POST",
+      body: JSON.stringify({
+        Email: email,
+        Password: password
+      })
+    })
+      .then(response => {
+        if (response.status < 300) {
+          const authHeader = response.headers.get("Authorization");
+          localStorage.setItem("Auth", authHeader);
+          return response.json();
+        } else {
+          localStorage.removeItem("Auth");
+        }
+      })
+      .catch(err => {
+        alert(err);
+        return;
+      })
+      .then(user => {
+        this.setState({ user: user });
+      })
+      .catch(err => {
+        alert(err);
+        return;
+      });
   };
 
   handleSignUp = (
@@ -25,18 +48,71 @@ export default class App extends React.Component {
     passwordConf,
     username
   ) => {
-    // TODO:
-    // localStorage.setItem("Auth", "temp")
+    fetch("https://api.alexst.me/v1/users", {
+      method: "POST",
+      body: JSON.stringify({
+        Email: email,
+        Password: password,
+        PasswordConf: passwordConf,
+        UserName: username,
+        FirstName: firstname,
+        LastName: lastname
+      })
+    })
+      .then(response => {
+        if (response.status < 300) {
+          const authHeader = response.headers.get("Authorization");
+          localStorage.setItem("Auth", authHeader);
+          return response.json();
+        } else {
+          localStorage.removeItem("Auth");
+        }
+      })
+      .then(user => {
+        this.setState({ user: user });
+      });
   };
 
+  // TODO: Conditional header?
   handleSignOut = () => {
-    // TODO
-    this.setState({ user: null });
+    fetch("https://api.alexst.me/v1/sessions/mine", {
+      method: "DELETE",
+      headers: {
+        Authorization: localStorage.getItem("Auth")
+      }
+    })
+      .then(response => {
+        if (response.ok) {
+          localStorage.removeItem("Auth");
+          this.setState({ user: null });
+        }
+      })
+      .catch(err => {
+        alert(err);
+      });
   };
 
   handleUpdate = (fNameChange, lNameChange) => {
-    // TODO
-    this.setState({ showUpdate: false });
+    fetch("https://api.alexst.me/v1/users/me", {
+      method: "PATCH",
+      headers: {
+        Authorization: localStorage.getItem("Auth")
+      },
+      body: JSON.stringify({
+        FirstName: fNameChange,
+        LastName: lNameChange
+      })
+    })
+      .then(response => {
+        return response.json();
+      })
+      .catch(err => {
+        alert(err);
+        return;
+      })
+      .then(user => {
+        this.setState({ user: user, showUpdate: false });
+      });
   };
 
   handleUpdateChange = () => {

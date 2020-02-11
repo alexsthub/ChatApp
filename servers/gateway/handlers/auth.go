@@ -55,7 +55,6 @@ func (ctx *ContextHandler) UsersHandler(w http.ResponseWriter, r *http.Request) 
 		}
 		w.WriteHeader(http.StatusCreated)
 		w.Header().Set("Content-Type", "application/json")
-
 	} else {
 		http.Error(w, "Must be a post", http.StatusMethodNotAllowed)
 		return
@@ -64,9 +63,6 @@ func (ctx *ContextHandler) UsersHandler(w http.ResponseWriter, r *http.Request) 
 
 // SpecificUsersHandler handles requests for a specific user
 func (ctx *ContextHandler) SpecificUsersHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: Current user must be authenticated
-	// ? Is session state populated now?
-	// ? Is this how you check if current user is authenticated?
 	sessionState := &SessionState{}
 	_, err := sessions.GetState(r, ctx.SigningKey, ctx.SessionStore, sessionState)
 	if err != nil {
@@ -77,7 +73,6 @@ func (ctx *ContextHandler) SpecificUsersHandler(w http.ResponseWriter, r *http.R
 
 	switch r.Method {
 	case "GET":
-		// ? Is this how I would get the userID
 		var userID int64
 		if base := path.Base(r.URL.Path); base == "me" {
 			userID = sessionState.User.ID
@@ -85,6 +80,11 @@ func (ctx *ContextHandler) SpecificUsersHandler(w http.ResponseWriter, r *http.R
 			userID, err = strconv.ParseInt(base, 10, 64)
 			if err != nil {
 				w.Write([]byte("Cannot parse given user id"))
+				return
+			}
+			if userID != sessionState.User.ID {
+				w.Write([]byte("Given ID does not match current authenticated ID"))
+				return
 			}
 		}
 
@@ -112,9 +112,11 @@ func (ctx *ContextHandler) SpecificUsersHandler(w http.ResponseWriter, r *http.R
 			incomingID, err := strconv.ParseInt(base, 10, 64)
 			if err != nil {
 				w.Write([]byte(err.Error()))
+				return
 			}
 			if incomingID != sessionState.User.ID {
 				http.Error(w, "ID's do not match", http.StatusUnauthorized)
+				return
 			}
 		}
 
@@ -202,6 +204,7 @@ func (ctx *ContextHandler) SpecificSessionsHandler(w http.ResponseWriter, r *htt
 	case "DELETE":
 		if strings.ToLower(path.Base(r.URL.Path)) != "mine" {
 			http.Error(w, "Last path does not equal 'mine'", http.StatusForbidden)
+			return
 		}
 		_, err := sessions.EndSession(r, ctx.SigningKey, ctx.SessionStore)
 		if err != nil {
