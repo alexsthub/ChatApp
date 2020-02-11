@@ -31,7 +31,7 @@ func main() {
 	sessionStore := sessions.NewRedisStore(redis.NewClient(&redis.Options{Addr: redisAddr}), time.Hour)
 	userStore, err := users.NewSQLStore(dsn)
 	if err != nil {
-		log.Fatal("Cannot connect to users database")
+		log.Fatal("Cannot connect to users database, reason: ", err)
 	}
 	ctx := &handlers.ContextHandler{
 		SigningKey:   signingKey,

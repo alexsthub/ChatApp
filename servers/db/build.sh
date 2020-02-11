@@ -1,10 +1,5 @@
-docker stop mysql
-docker rm -f mysql
-
 docker build -t alexsthub/mysql .
+docker push alexsthub/mysql
 
-docker run -d \
--p 3306:3306 \
---name mysql \
--e MYSQL_ROOT_PASSWORD="databasepassword" \
-alexsthub/mysql:latest
+ssh -i ~/.ssh/infoKey.pem ec2-user@ec2-44-230-107-9.us-west-2.compute.amazonaws.com < deploy.sh
+

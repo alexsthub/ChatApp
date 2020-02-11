@@ -1,6 +1,6 @@
-CREATE DATABASE usersDB;
-
-USE usersDB;
+ALTER USER root
+IDENTIFIED WITH mysql_native_password
+BY 'databasepassword';
 
 create table if not exists users
 (
@@ -20,3 +20,5 @@ INSERT INTO users
 VALUES 
 ("alextan785@gmail.com", "Alex", "Tan", "ASDIASJNDIUSANDIUSADNASIUD", "alextan785", "myexamplephotourl.com/avatar/alexst"),
 ("test@gmail.com", "FirstTest", "LastTest", "MYPASSHASHBUTISITAGOODHASH", "TestingUser", "myexamplephotourl.com/avatar/test");
+
+flush privileges;
