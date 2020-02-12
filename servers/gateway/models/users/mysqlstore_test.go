@@ -22,7 +22,7 @@ func TestGetByID(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		store, err := NewSQLStore("usersDB", "databasepassword")
+		store, err := NewSQLStore("root:password@tcp(127.0.0.1:3306)/users")
 		if err != nil {
 			t.Errorf("unexpected error getting database connection: %v", err)
 		}
@@ -51,7 +51,7 @@ func TestGetByEmail(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		store, err := NewSQLStore("usersDB", "databasepassword")
+		store, err := NewSQLStore("root:password@tcp(127.0.0.1:3306)/users")
 		if err != nil {
 			t.Errorf("unexpected error getting database connection: %v", err)
 		}
@@ -80,7 +80,7 @@ func TestGetByUsername(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		store, err := NewSQLStore("usersDB", "databasepassword")
+		store, err := NewSQLStore("root:password@tcp(127.0.0.1:3306)/users")
 		if err != nil {
 			t.Errorf("unexpected error getting database connection: %v", err)
 		}
@@ -115,7 +115,7 @@ func TestInsert(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		store, err := NewSQLStore("usersDB", "databasepassword")
+		store, err := NewSQLStore("root:password@tcp(127.0.0.1:3306)/users")
 		if err != nil {
 			t.Errorf("unexpected error getting database connection: %v", err)
 		}
@@ -169,7 +169,7 @@ func TestUpdate(t *testing.T) {
 			"",
 		},
 	}
-	store, err := NewSQLStore("usersDB", "databasepassword")
+	store, err := NewSQLStore("root:password@tcp(127.0.0.1:3306)/users")
 	if err != nil {
 		t.Errorf("unexpected error getting database connection: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestDelete(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		store, err := NewSQLStore("usersDB", "databasepassword")
+		store, err := NewSQLStore("root:password@tcp(127.0.0.1:3306)/users")
 		if err != nil {
 			t.Errorf("unexpected error getting database connection: %v", err)
 		}

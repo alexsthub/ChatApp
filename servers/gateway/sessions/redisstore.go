@@ -3,6 +3,7 @@ package sessions
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/go-redis/redis"
@@ -37,24 +38,35 @@ func (rs *RedisStore) Save(sid SessionID, sessionState interface{}) error {
 	if err != nil {
 		return fmt.Errorf(err.Error())
 	}
-	rs.Client.Set(redisKey, state, cache.DefaultExpiration)
+	err = rs.Client.Set(redisKey, state, cache.DefaultExpiration).Err()
+	if err != nil {
+		return err
+	}
+	log.Println("saved key: " + redisKey)
 	return nil
 }
 
 //Get populates `sessionState` with the data previously saved
 //for the given SessionID
 func (rs *RedisStore) Get(sid SessionID, sessionState interface{}) error {
+	log.Println("given key: " + sid.getRedisKey())
 	prevSession, err := rs.Client.Get(sid.getRedisKey()).Result()
+	log.Println("Made it to redis get")
 	if err != nil {
 		if err == redis.Nil {
+			log.Println("Key does not exist")
 			return ErrStateNotFound
 		}
+		log.Println("Bad things")
 		return err
 	}
 	err = json.Unmarshal([]byte(prevSession), sessionState)
 	if err != nil {
 		return fmt.Errorf(err.Error())
 	}
+	log.Println("made it past unmarshall")
+
+	// TODO: This is broken
 	rs.Client.Do("EXPIRE", sid.getRedisKey(), cache.DefaultExpiration)
 
 	return nil
@@ -62,7 +74,10 @@ func (rs *RedisStore) Get(sid SessionID, sessionState interface{}) error {
 
 //Delete deletes all state data associated with the SessionID from the store.
 func (rs *RedisStore) Delete(sid SessionID) error {
-	rs.Client.Del(sid.getRedisKey())
+	err := rs.Client.Del(sid.getRedisKey()).Err()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

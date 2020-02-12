@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"log"
 	"net/http"
 	"path"
 	"strconv"
@@ -25,36 +26,36 @@ func (ctx *ContextHandler) UsersHandler(w http.ResponseWriter, r *http.Request) 
 		buf.ReadFrom(r.Body)
 		err := json.Unmarshal(buf.Bytes(), newUser)
 		if err != nil {
-			w.Write([]byte("Error unmarshalling new user from request: " + err.Error()))
+			http.Error(w, "Error unmarshalling new user from request: "+err.Error(), 500)
 			return
 		}
 		// Make a new user and add to db
 		user, err := newUser.ToUser()
 		if err != nil {
-			w.Write([]byte("Error making new user: " + err.Error()))
+			http.Error(w, "Error unmarshalling new user from request: "+err.Error(), 500)
 			return
 		}
 		user, err = ctx.UserStore.Insert(user)
 		if err != nil {
-			w.Write([]byte("Error inserting new user into the database: " + err.Error()))
+			http.Error(w, "Error inserting new user into the database: "+err.Error(), 500)
 			return
 		}
 		// Begin session
 		sessionState := SessionState{User: user, Time: time.Now()}
 		_, err = sessions.BeginSession(ctx.SigningKey, ctx.SessionStore, sessionState, w)
 		if err != nil {
-			w.Write([]byte("Error beginning session: " + err.Error()))
+			http.Error(w, "Error beginning session: "+err.Error(), 500)
 			return
 		}
 
 		// Respond to client
+		w.WriteHeader(http.StatusCreated)
+		w.Header().Set("Content-Type", "application/json")
 		err = json.NewEncoder(w).Encode(user)
 		if err != nil {
 			w.Write([]byte(err.Error()))
 			return
 		}
-		w.WriteHeader(http.StatusCreated)
-		w.Header().Set("Content-Type", "application/json")
 	} else {
 		http.Error(w, "Must be a post", http.StatusMethodNotAllowed)
 		return
@@ -66,8 +67,7 @@ func (ctx *ContextHandler) SpecificUsersHandler(w http.ResponseWriter, r *http.R
 	sessionState := &SessionState{}
 	_, err := sessions.GetState(r, ctx.SigningKey, ctx.SessionStore, sessionState)
 	if err != nil {
-		// User is not authenticated
-		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		http.Error(w, "User not authenticated: "+err.Error(), http.StatusUnauthorized)
 		return
 	}
 
@@ -79,11 +79,11 @@ func (ctx *ContextHandler) SpecificUsersHandler(w http.ResponseWriter, r *http.R
 		} else {
 			userID, err = strconv.ParseInt(base, 10, 64)
 			if err != nil {
-				w.Write([]byte("Cannot parse given user id"))
+				http.Error(w, "Cannot parse given user id", 400)
 				return
 			}
 			if userID != sessionState.User.ID {
-				w.Write([]byte("Given ID does not match current authenticated ID"))
+				http.Error(w, "Given ID does not match current authenticated ID", 400)
 				return
 			}
 		}
@@ -93,13 +93,13 @@ func (ctx *ContextHandler) SpecificUsersHandler(w http.ResponseWriter, r *http.R
 			http.Error(w, "UserID does not exist", http.StatusMethodNotAllowed)
 			return
 		}
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/json")
 		err = json.NewEncoder(w).Encode(user)
 		if err != nil {
 			w.Write([]byte(err.Error()))
 			return
 		}
-		w.WriteHeader(http.StatusOK)
-		w.Header().Set("Content-Type", "application/json")
 
 	case "PATCH":
 		if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
@@ -165,8 +165,6 @@ func (ctx *ContextHandler) SessionsHandler(w http.ResponseWriter, r *http.Reques
 			w.Write([]byte("Error unmarshalling creds from request: " + err.Error()))
 			return
 		}
-		// Find and authenticate user
-		// ?If you don't find the user profile, do something that would take about the same amount of time as authenticating
 		user, err := ctx.UserStore.GetByEmail(creds.Email)
 		if err != nil {
 			http.Error(w, "Invalid Credentials", http.StatusUnauthorized)
@@ -177,6 +175,7 @@ func (ctx *ContextHandler) SessionsHandler(w http.ResponseWriter, r *http.Reques
 			http.Error(w, "Invalid Credentials", http.StatusUnauthorized)
 			return
 		}
+		log.Println("Finished authentication")
 		// Begin a new session
 		sessionState := SessionState{}
 		_, err = sessions.BeginSession(ctx.SigningKey, ctx.SessionStore, sessionState, w)
@@ -184,14 +183,15 @@ func (ctx *ContextHandler) SessionsHandler(w http.ResponseWriter, r *http.Reques
 			w.Write([]byte("Error beginning session: " + err.Error()))
 			return
 		}
-
+		log.Println("Finished begining session")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
 		err = json.NewEncoder(w).Encode(user)
 		if err != nil {
 			w.Write([]byte(err.Error()))
 			return
 		}
-		w.WriteHeader(http.StatusCreated)
-		w.Header().Set("Content-Type", "application/json")
+		log.Println("Finished entire method")
 	default:
 		http.Error(w, "", http.StatusMethodNotAllowed)
 		return

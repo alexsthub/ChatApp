@@ -3,6 +3,7 @@ package sessions
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -25,7 +26,11 @@ func BeginSession(signingKey string, store Store, sessionState interface{}, w ht
 		w.Write([]byte(err.Error()))
 		return InvalidSessionID, err
 	}
-	store.Save(sessionID, sessionState)
+	err = store.Save(sessionID, sessionState)
+	if err != nil {
+		w.Write([]byte(err.Error()))
+		return InvalidSessionID, err
+	}
 	authHeaderValue := schemeBearer + sessionID.String()
 	w.Header().Add("Authorization", authHeaderValue)
 
@@ -39,6 +44,7 @@ func GetSessionID(r *http.Request, signingKey string) (SessionID, error) {
 		sessionAuth = r.URL.Query().Get("auth")
 	}
 	// Parse sessionAuthID
+	log.Println(sessionAuth)
 	tokens := strings.Split(sessionAuth, " ")
 	if len(tokens) == 2 && tokens[0] == "Bearer" {
 		sessionAuth = strings.TrimSpace(tokens[1])

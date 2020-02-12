@@ -1,8 +1,17 @@
 package handlers
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestGET(t *testing.T) {
+	// w := httptest.NewRecorder()
+	// req, _ := http.NewRequest("GET", "https://google.com", nil)
+	// mux := http.NewServeMux()
+	// ctx := &ContextHandler{}
+	// mux.HandleFunc("/v1/sessions", ctx.SessionsHandler)
+	// handler := CorsMW{Handler: mux}
+	// handler(w, req)
 
 }
 

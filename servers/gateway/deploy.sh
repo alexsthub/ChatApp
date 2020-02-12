@@ -11,8 +11,6 @@ docker run \
   --name redisDB \
   redis
 
-
-
 docker run \
   -d \
   --network api \
@@ -22,7 +20,7 @@ docker run \
   -e TLSKEY="/etc/letsencrypt/live/api.alexst.me/privkey.pem" \
   -e TLSCERT="/etc/letsencrypt/live/api.alexst.me/fullchain.pem" \
   -e SESSIONKEY="mytestkey123" \
-  -e REDISADDR="127.0.0.1:6379" \
+  -e REDISADDR="redisDB:6379" \
   -e DSN="root:databasepassword@tcp(mysql:3306)/usersDB" \
   --name gateway \
   alexsthub/gateway
