@@ -3,7 +3,6 @@ package sessions
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/go-redis/redis"
@@ -42,29 +41,23 @@ func (rs *RedisStore) Save(sid SessionID, sessionState interface{}) error {
 	if err != nil {
 		return err
 	}
-	log.Println("saved key: " + redisKey)
 	return nil
 }
 
 //Get populates `sessionState` with the data previously saved
 //for the given SessionID
 func (rs *RedisStore) Get(sid SessionID, sessionState interface{}) error {
-	log.Println("given key: " + sid.getRedisKey())
 	prevSession, err := rs.Client.Get(sid.getRedisKey()).Result()
-	log.Println("Made it to redis get")
 	if err != nil {
 		if err == redis.Nil {
-			log.Println("Key does not exist")
 			return ErrStateNotFound
 		}
-		log.Println("Bad things")
 		return err
 	}
 	err = json.Unmarshal([]byte(prevSession), sessionState)
 	if err != nil {
 		return fmt.Errorf(err.Error())
 	}
-	log.Println("made it past unmarshall")
 
 	rs.Client.Do("EXPIRE", sid.getRedisKey(), cache.DefaultExpiration)
 	return nil

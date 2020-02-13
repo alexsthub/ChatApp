@@ -140,8 +140,9 @@ export default class App extends React.Component {
           <div>
             <p>Congratulations on signing in!</p>
             <p>
-              Your name is {this.state.user.FirstName}{" "}
-              {this.state.user.LastName}
+              Your name is {this.state.user.firstName}
+              {"  "}
+              {this.state.user.lastName}
             </p>
 
             {!this.state.showUpdate ? (
