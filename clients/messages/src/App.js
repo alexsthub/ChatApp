@@ -13,6 +13,7 @@ export default class App extends React.Component {
   handleSignIn = (email, password) => {
     fetch("https://api.alexst.me/v1/sessions", {
       method: "POST",
+      headers: { "Content-Type": " application/json" },
       body: JSON.stringify({
         Email: email,
         Password: password
@@ -48,16 +49,18 @@ export default class App extends React.Component {
     passwordConf,
     username
   ) => {
+    const body = {
+      FirstName: firstname,
+      LastName: lastname,
+      Email: email,
+      UserName: username,
+      Password: password,
+      PasswordConf: passwordConf
+    };
     fetch("https://api.alexst.me/v1/users", {
       method: "POST",
-      body: JSON.stringify({
-        Email: email,
-        Password: password,
-        PasswordConf: passwordConf,
-        UserName: username,
-        FirstName: firstname,
-        LastName: lastname
-      })
+      headers: { "Content-Type": " application/json" },
+      body: JSON.stringify(body)
     })
       .then(response => {
         if (response.status < 300) {
@@ -68,12 +71,15 @@ export default class App extends React.Component {
           localStorage.removeItem("Auth");
         }
       })
+      .catch(err => {
+        alert(err);
+        return;
+      })
       .then(user => {
         this.setState({ user: user });
       });
   };
 
-  // TODO: Conditional header?
   handleSignOut = () => {
     fetch("https://api.alexst.me/v1/sessions/mine", {
       method: "DELETE",
@@ -89,6 +95,7 @@ export default class App extends React.Component {
       })
       .catch(err => {
         alert(err);
+        return;
       });
   };
 
@@ -96,6 +103,7 @@ export default class App extends React.Component {
     fetch("https://api.alexst.me/v1/users/me", {
       method: "PATCH",
       headers: {
+        "Content-Type": " application/json",
         Authorization: localStorage.getItem("Auth")
       },
       body: JSON.stringify({

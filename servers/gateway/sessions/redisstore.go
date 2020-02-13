@@ -66,9 +66,9 @@ func (rs *RedisStore) Get(sid SessionID, sessionState interface{}) error {
 	}
 	log.Println("made it past unmarshall")
 
-	// TODO: This is broken
-	rs.Client.Do("EXPIRE", sid.getRedisKey(), cache.DefaultExpiration)
-
+	// TODO
+	// rs.Client.Do("EXPIRE", sid.getRedisKey(), cache.DefaultExpiration)
+	// rs.Client.TTL(sid.getRedisKey())
 	return nil
 }
 

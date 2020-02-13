@@ -53,7 +53,7 @@ func (ctx *ContextHandler) UsersHandler(w http.ResponseWriter, r *http.Request) 
 		w.Header().Set("Content-Type", "application/json")
 		err = json.NewEncoder(w).Encode(user)
 		if err != nil {
-			w.Write([]byte(err.Error()))
+			http.Error(w, err.Error(), 500)
 			return
 		}
 	} else {
@@ -97,7 +97,7 @@ func (ctx *ContextHandler) SpecificUsersHandler(w http.ResponseWriter, r *http.R
 		w.Header().Set("Content-Type", "application/json")
 		err = json.NewEncoder(w).Encode(user)
 		if err != nil {
-			w.Write([]byte(err.Error()))
+			http.Error(w, err.Error(), 500)
 			return
 		}
 
@@ -111,7 +111,7 @@ func (ctx *ContextHandler) SpecificUsersHandler(w http.ResponseWriter, r *http.R
 			// Assume base is the id and check if it matches
 			incomingID, err := strconv.ParseInt(base, 10, 64)
 			if err != nil {
-				w.Write([]byte(err.Error()))
+				http.Error(w, "ID's do not match", http.StatusUnauthorized)
 				return
 			}
 			if incomingID != sessionState.User.ID {
@@ -126,18 +126,18 @@ func (ctx *ContextHandler) SpecificUsersHandler(w http.ResponseWriter, r *http.R
 		buf.ReadFrom(r.Body)
 		err = json.Unmarshal(buf.Bytes(), updates)
 		if err != nil {
-			w.Write([]byte("Error unmarshalling updates from request: " + err.Error()))
+			http.Error(w, "Error unmarshalling updates from request: "+err.Error(), 500)
 			return
 		}
 		user, err := ctx.UserStore.Update(sessionState.User.ID, updates)
 		if err != nil {
-			w.Write([]byte("Error updating user: " + err.Error()))
+			http.Error(w, "Error updating user: "+err.Error(), 500)
 			return
 		}
 
 		err = json.NewEncoder(w).Encode(user)
 		if err != nil {
-			w.Write([]byte(err.Error()))
+			http.Error(w, err.Error(), 500)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -162,7 +162,7 @@ func (ctx *ContextHandler) SessionsHandler(w http.ResponseWriter, r *http.Reques
 		buf.ReadFrom(r.Body)
 		err := json.Unmarshal(buf.Bytes(), creds)
 		if err != nil {
-			w.Write([]byte("Error unmarshalling creds from request: " + err.Error()))
+			http.Error(w, "Error unmarshalling creds from request: "+err.Error(), 500)
 			return
 		}
 		user, err := ctx.UserStore.GetByEmail(creds.Email)
@@ -180,7 +180,7 @@ func (ctx *ContextHandler) SessionsHandler(w http.ResponseWriter, r *http.Reques
 		sessionState := SessionState{}
 		_, err = sessions.BeginSession(ctx.SigningKey, ctx.SessionStore, sessionState, w)
 		if err != nil {
-			w.Write([]byte("Error beginning session: " + err.Error()))
+			http.Error(w, "Error beginning session: "+err.Error(), 500)
 			return
 		}
 		log.Println("Finished begining session")
@@ -208,10 +208,11 @@ func (ctx *ContextHandler) SpecificSessionsHandler(w http.ResponseWriter, r *htt
 		}
 		_, err := sessions.EndSession(r, ctx.SigningKey, ctx.SessionStore)
 		if err != nil {
-			w.Write([]byte(err.Error()))
+			http.Error(w, err.Error(), 500)
 			return
 		}
 		w.Write([]byte("Signed Out"))
+		return
 	default:
 		http.Error(w, "", http.StatusMethodNotAllowed)
 		return
