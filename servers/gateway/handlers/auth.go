@@ -3,7 +3,6 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
-	"log"
 	"net/http"
 	"path"
 	"strconv"
@@ -175,15 +174,13 @@ func (ctx *ContextHandler) SessionsHandler(w http.ResponseWriter, r *http.Reques
 			http.Error(w, "Invalid Credentials", http.StatusUnauthorized)
 			return
 		}
-		log.Println("Finished authentication")
 		// Begin a new session
-		sessionState := SessionState{}
+		sessionState := SessionState{User: user, Time: time.Now()}
 		_, err = sessions.BeginSession(ctx.SigningKey, ctx.SessionStore, sessionState, w)
 		if err != nil {
 			http.Error(w, "Error beginning session: "+err.Error(), 500)
 			return
 		}
-		log.Println("Finished begining session")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		err = json.NewEncoder(w).Encode(user)
@@ -191,7 +188,6 @@ func (ctx *ContextHandler) SessionsHandler(w http.ResponseWriter, r *http.Reques
 			w.Write([]byte(err.Error()))
 			return
 		}
-		log.Println("Finished entire method")
 	default:
 		http.Error(w, "", http.StatusMethodNotAllowed)
 		return

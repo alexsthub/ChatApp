@@ -3,7 +3,6 @@ package sessions
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 )
@@ -44,7 +43,6 @@ func GetSessionID(r *http.Request, signingKey string) (SessionID, error) {
 		sessionAuth = r.URL.Query().Get("auth")
 	}
 	// Parse sessionAuthID
-	log.Println(sessionAuth)
 	tokens := strings.Split(sessionAuth, " ")
 	if len(tokens) == 2 && tokens[0] == "Bearer" {
 		sessionAuth = strings.TrimSpace(tokens[1])
