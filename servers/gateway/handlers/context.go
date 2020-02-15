@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"github.com/UW-Info-441-Winter-Quarter-2020/homework-alexsthub/servers/gateway/indexes"
 	"github.com/UW-Info-441-Winter-Quarter-2020/homework-alexsthub/servers/gateway/models/users"
 	"github.com/UW-Info-441-Winter-Quarter-2020/homework-alexsthub/servers/gateway/sessions"
 )
@@ -12,4 +13,5 @@ type ContextHandler struct {
 	SigningKey   string
 	SessionStore *sessions.RedisStore
 	UserStore    *users.MySQLStore
+	UserTrie     *indexes.Trie
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -39,6 +40,17 @@ func (ctx *ContextHandler) UsersHandler(w http.ResponseWriter, r *http.Request) 
 			http.Error(w, "Error inserting new user into the database: "+err.Error(), 500)
 			return
 		}
+		// Insert user data into trie
+		for _, word := range strings.Split(user.FirstName, " ") {
+			ctx.UserTrie.Add(strings.ToLower(word), user.ID)
+		}
+		for _, word := range strings.Split(user.LastName, " ") {
+			ctx.UserTrie.Add(strings.ToLower(word), user.ID)
+		}
+		for _, word := range strings.Split(user.UserName, " ") {
+			ctx.UserTrie.Add(strings.ToLower(word), user.ID)
+		}
+
 		// Begin session
 		sessionState := SessionState{User: user, Time: time.Now()}
 		_, err = sessions.BeginSession(ctx.SigningKey, ctx.SessionStore, sessionState, w)
@@ -51,6 +63,42 @@ func (ctx *ContextHandler) UsersHandler(w http.ResponseWriter, r *http.Request) 
 		w.WriteHeader(http.StatusCreated)
 		w.Header().Set("Content-Type", "application/json")
 		err = json.NewEncoder(w).Encode(user)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+	} else if r.Method == "GET" {
+		// User search
+		// Check if user is authenticaed
+		sessionState := &SessionState{}
+		_, err := sessions.GetState(r, ctx.SigningKey, ctx.SessionStore, sessionState)
+		if err != nil {
+			http.Error(w, "User not authenticated: "+err.Error(), http.StatusUnauthorized)
+			return
+		}
+		requestPrefix := r.URL.Query().Get("q")
+		if requestPrefix == "" {
+			http.Error(w, "", http.StatusBadRequest)
+		}
+		// Find the first 20 UserIDs who's keys start with the prefix supplied in the q query string parameter.
+		userIDs := ctx.UserTrie.Find(requestPrefix, 20)
+		var foundUsers []*users.User
+		for id := range userIDs {
+			user, err := ctx.UserStore.GetByID(int64(id))
+			if err != nil {
+				http.Error(w, "", 500)
+			}
+			foundUsers = append(foundUsers, user)
+		}
+		// Sort by username ascending
+		sort.Slice(foundUsers[:], func(i, j int) bool {
+			return foundUsers[i].UserName < foundUsers[j].UserName
+		})
+
+		// Respond to client
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/json")
+		err = json.NewEncoder(w).Encode(foundUsers)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
@@ -132,6 +180,24 @@ func (ctx *ContextHandler) SpecificUsersHandler(w http.ResponseWriter, r *http.R
 		if err != nil {
 			http.Error(w, "Error updating user: "+err.Error(), 500)
 			return
+		}
+
+		// Patch the user trie
+		prevFName := sessionState.User.FirstName
+		prevLName := sessionState.User.LastName
+		// delete old names from trie
+		for _, word := range strings.Split(prevFName, " ") {
+			ctx.UserTrie.Remove(strings.ToLower(word), sessionState.User.ID)
+		}
+		for _, word := range strings.Split(prevLName, " ") {
+			ctx.UserTrie.Remove(strings.ToLower(word), sessionState.User.ID)
+		}
+		// add new names to trie
+		for _, word := range strings.Split(updates.FirstName, " ") {
+			ctx.UserTrie.Add(strings.ToLower(word), sessionState.User.ID)
+		}
+		for _, word := range strings.Split(updates.LastName, " ") {
+			ctx.UserTrie.Add(strings.ToLower(word), sessionState.User.ID)
 		}
 
 		err = json.NewEncoder(w).Encode(user)

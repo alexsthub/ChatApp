@@ -3,8 +3,10 @@ package users
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	// Sql driver
+	"github.com/UW-Info-441-Winter-Quarter-2020/homework-alexsthub/servers/gateway/indexes"
 	_ "github.com/go-sql-driver/mysql"
 )
 
@@ -101,4 +103,38 @@ func (store *MySQLStore) Delete(id int64) error {
 		return err
 	}
 	return nil
+}
+
+// trieUser is a struct
+type trieUser struct {
+	ID        int64
+	FirstName string
+	LastName  string
+	UserName  string
+}
+
+// LoadUsersToTrie will load all users into a user trie and return it
+func (store *MySQLStore) LoadUsersToTrie() (*indexes.Trie, error) {
+	query := "SELECT id, first_name, last_name, username FROM users"
+	rows, err := store.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	userTrie := indexes.NewTrie()
+	for rows.Next() {
+		user := &trieUser{}
+		if err := rows.Scan(&user.ID, &user.FirstName, &user.LastName, &user.UserName); err != nil {
+			fmt.Printf("error scanning row: %v\n", err)
+		}
+		for _, word := range strings.Split(user.FirstName, " ") {
+			userTrie.Add(strings.ToLower(word), user.ID)
+		}
+		for _, word := range strings.Split(user.LastName, " ") {
+			userTrie.Add(strings.ToLower(word), user.ID)
+		}
+		for _, word := range strings.Split(user.UserName, " ") {
+			userTrie.Add(strings.ToLower(word), user.ID)
+		}
+	}
+	return userTrie, nil
 }

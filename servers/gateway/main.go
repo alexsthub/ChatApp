@@ -42,6 +42,13 @@ func main() {
 		UserStore:    userStore,
 	}
 
+	// Load users into trie
+	userTrie, err := ctx.UserStore.LoadUsersToTrie()
+	if err != nil {
+		log.Fatal("Error loading users to user trie")
+	}
+	ctx.UserTrie = userTrie
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/summary/", handlers.SummaryHandler)
 	mux.HandleFunc("/v1/users", ctx.UsersHandler)

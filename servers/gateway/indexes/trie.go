@@ -5,8 +5,6 @@ import (
 	"sync"
 )
 
-//TODO: implement a trie data structure that stores keys of type string and values of type int64
-
 //PRO TIP: if you are having troubles and want to see
 //what your trie structure looks like at various points,
 //either use the debugger, or try this package:
@@ -17,7 +15,7 @@ import (
 type Trie struct {
 	root *Node
 	size int
-	mu   sync.Mutex
+	mu   sync.RWMutex
 }
 
 // Node is a node in the Trie
@@ -83,7 +81,7 @@ func Contains(slice []int64, val int64) bool {
 //is entirely empty, or the prefix is empty, or max == 0,
 //or the prefix is not found, this returns a nil slice.
 func (t *Trie) Find(prefix string, max int) []int64 {
-	t.mu.Lock()
+	t.mu.RLock()
 	var results []int64
 	currentNode := t.root
 	if t.Len() == 0 || prefix == "" || max == 0 {
@@ -121,7 +119,7 @@ func (t *Trie) Find(prefix string, max int) []int64 {
 			queue = append(queue, nextNode)
 		}
 	}
-	t.mu.Unlock()
+	t.mu.RUnlock()
 	return results
 }
 
@@ -148,8 +146,8 @@ func (t *Trie) Remove(key string, value int64) {
 	valueList = append(valueList[0:index], valueList[index+1:]...)
 	currentNode.value = valueList
 	t.size--
-	// If node is leafNode && valueList is empty, trim up until there is a value
 	for {
+		// If node is leafNode && valueList is empty, trim up until there is a value
 		if len(currentNode.children) == 0 && len(currentNode.value) == 0 {
 			delNode := currentNode
 			currentNode = currentNode.parent
