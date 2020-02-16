@@ -28,7 +28,7 @@ type Node struct {
 
 //NewTrie constructs a new Trie.
 func NewTrie() *Trie {
-	return &Trie{root: &Node{}}
+	return &Trie{root: &Node{children: make(map[rune]*Node)}}
 }
 
 //Len returns the number of entries in the trie.
@@ -39,14 +39,16 @@ func (t *Trie) Len() int {
 //Add adds a key and value to the trie.
 func (t *Trie) Add(key string, value int64) {
 	t.mu.Lock()
+	defer t.mu.Unlock()
 	currentNode := t.root
 	runes := []rune(key)
 	for i := range runes {
 		char := runes[i]
 		if _, exists := currentNode.children[char]; !exists {
 			newNode := &Node{
-				parent: currentNode,
-				key:    char,
+				parent:   currentNode,
+				key:      char,
+				children: make(map[rune]*Node),
 			}
 			currentNode.children[char] = newNode
 		}
@@ -57,7 +59,6 @@ func (t *Trie) Add(key string, value int64) {
 		currentNode.value = append(currentNode.value, value)
 		t.size++
 	}
-	t.mu.Unlock()
 }
 
 // RuneSlice is a helper to sort slice of runes
@@ -82,6 +83,7 @@ func Contains(slice []int64, val int64) bool {
 //or the prefix is not found, this returns a nil slice.
 func (t *Trie) Find(prefix string, max int) []int64 {
 	t.mu.RLock()
+	defer t.mu.RUnlock()
 	var results []int64
 	currentNode := t.root
 	if t.Len() == 0 || prefix == "" || max == 0 {
@@ -102,7 +104,7 @@ func (t *Trie) Find(prefix string, max int) []int64 {
 		currentNode = queue[0]
 		queue = queue[1:]
 		// If value exists add to results
-		for v := range currentNode.value {
+		for _, v := range currentNode.value {
 			results = append(results, int64(v))
 			if len(results) >= max {
 				return results
@@ -119,7 +121,6 @@ func (t *Trie) Find(prefix string, max int) []int64 {
 			queue = append(queue, nextNode)
 		}
 	}
-	t.mu.RUnlock()
 	return results
 }
 
@@ -127,6 +128,7 @@ func (t *Trie) Find(prefix string, max int) []int64 {
 //and trims branches with no values.
 func (t *Trie) Remove(key string, value int64) {
 	t.mu.Lock()
+	defer t.mu.Unlock()
 	currentNode := t.root
 	runes := []rune(key)
 	for i := range runes {
@@ -156,5 +158,4 @@ func (t *Trie) Remove(key string, value int64) {
 			break
 		}
 	}
-	t.mu.Unlock()
 }
