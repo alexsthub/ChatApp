@@ -83,10 +83,11 @@ func (ctx *ContextHandler) UsersHandler(w http.ResponseWriter, r *http.Request) 
 		// Find the first 20 UserIDs who's keys start with the prefix supplied in the q query string parameter.
 		userIDs := ctx.UserTrie.Find(requestPrefix, 20)
 		var foundUsers []*users.User
-		for id := range userIDs {
+		for _, id := range userIDs {
 			user, err := ctx.UserStore.GetByID(int64(id))
 			if err != nil {
 				http.Error(w, "", 500)
+				return
 			}
 			foundUsers = append(foundUsers, user)
 		}

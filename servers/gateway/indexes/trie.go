@@ -81,6 +81,7 @@ func Contains(slice []int64, val int64) bool {
 //Find finds `max` values matching `prefix`. If the trie
 //is entirely empty, or the prefix is empty, or max == 0,
 //or the prefix is not found, this returns a nil slice.
+// TODO: Find is appending everything twice because we are getting it from first name and username.
 func (t *Trie) Find(prefix string, max int) []int64 {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -105,7 +106,9 @@ func (t *Trie) Find(prefix string, max int) []int64 {
 		queue = queue[1:]
 		// If value exists add to results
 		for _, v := range currentNode.value {
-			results = append(results, int64(v))
+			if !Contains(results, v) {
+				results = append(results, int64(v))
+			}
 			if len(results) >= max {
 				return results
 			}
