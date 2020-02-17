@@ -60,10 +60,13 @@ func TestFind(t *testing.T) {
 	if badPrefixResults != nil {
 		t.Errorf("Searching with a prefix that isn't in the trie should return a nil slice but did not")
 	}
-}
-
-func TestFindSorting(t *testing.T) {
-
+	trie.Add("test", 11)
+	trie.Add("testa", 12)
+	trie.Add("testb", 13)
+	sortedResults := trie.Find("test", 3)
+	if len(sortedResults) != 3 || sortedResults[0] != 10 || sortedResults[1] != 11 || sortedResults[2] != 12 {
+		t.Errorf("Length of trie should be 3 with results[11,12,13]. Instead got length %d and results %v", len(sortedResults), results)
+	}
 }
 
 func TestDelete(t *testing.T) {
