@@ -10,7 +10,7 @@ export default class UserSearch extends React.Component {
 
   searchUsers = () => {
     const param = this.state.query;
-    const query = "https://api.alexst.me/v1/users?q" + param;
+    const query = "https://api.alexst.me/v1/users?q=" + param;
     fetch(query, {
       method: "GET",
       headers: { Authorization: localStorage.getItem("Auth") }
@@ -32,7 +32,12 @@ export default class UserSearch extends React.Component {
         return;
       })
       .then(users => {
-        this.setState({ users: users });
+        if (users === null) {
+          alert("no users");
+          this.setState({ query: "" });
+          return;
+        }
+        this.setState({ users: users, query: "" });
       })
       .catch(err => {
         alert(err);
@@ -50,6 +55,9 @@ export default class UserSearch extends React.Component {
   };
 
   render() {
+    const searchedUsers = this.state.users.map(user => {
+      return <AutocompleteProfile key={user.id} user={user} />;
+    });
     return (
       <div>
         <div className="form-group">
@@ -58,19 +66,25 @@ export default class UserSearch extends React.Component {
             className="form-control"
             id="query"
             name="query"
+            value={this.state.query}
             onChange={this.handleChange}
           />
+          <button className="btn btn-primary mr-2" onClick={this.searchUsers}>
+            Search
+          </button>
+          <button
+            className="btn btn-primary mr-2"
+            onClick={this.props.cancelSearch}
+          >
+            Cancel
+          </button>
         </div>
-        <p>Found users:</p>
-        <AutocompleteProfile
-          user={{
-            firstname: "alex",
-            lastname: "tan",
-            username: "alextan69",
-            photoURL:
-              "https://www.gravatar.com/avatar/205e460b479e2e5b48aec07710c08d50"
-          }}
-        />
+        {this.state.users.length > 0 ? (
+          <div>
+            <p>Found users:</p>
+            {searchedUsers}
+          </div>
+        ) : null}
       </div>
     );
   }

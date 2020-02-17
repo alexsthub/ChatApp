@@ -6,8 +6,8 @@ export default class App extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      user: {},
-      showUpdate: false
+      user: null,
+      content: "home"
     };
   }
 
@@ -120,15 +120,57 @@ export default class App extends React.Component {
         return;
       })
       .then(user => {
-        this.setState({ user: user, showUpdate: false });
+        this.setState({ user: user, content: "home" });
       });
   };
 
   handleUpdateChange = () => {
-    this.setState({ showUpdate: !this.state.showUpdate });
+    this.setState({ content: "update" });
   };
 
   render() {
+    let content = null;
+    switch (this.state.content) {
+      case "update":
+        content = (
+          <UpdateForm
+            cancelUpdate={() => this.setState({ content: "home" })}
+            handleUpdate={(fNameChange, lNameChange) =>
+              this.handleUpdate(fNameChange, lNameChange)
+            }
+          />
+        );
+        break;
+      case "search":
+        content = (
+          <UserSearch cancelSearch={() => this.setState({ content: "home" })} />
+        );
+        break;
+      default:
+        content = (
+          <div>
+            <p>Best I can do for you are these options</p>
+            <button
+              className="btn btn-primary mr-2"
+              onClick={this.handleSignOut}
+            >
+              Sign Out
+            </button>
+            <button
+              className="btn btn-primary mr-2"
+              onClick={this.handleUpdateChange}
+            >
+              Update Profile
+            </button>
+            <button
+              className="btn btn-primary mr-2"
+              onClick={() => this.setState({ content: "search" })}
+            >
+              Search Users
+            </button>
+          </div>
+        );
+    }
     return (
       <div className="App">
         <p>Welcome to my application</p>
@@ -146,37 +188,7 @@ export default class App extends React.Component {
               {this.state.user.lastName}
             </p>
 
-            {!this.state.showUpdate ? (
-              <div>
-                <p>Best I can do for you are these options</p>
-                <button
-                  className="btn btn-primary mr-2"
-                  onClick={this.handleSignOut}
-                >
-                  Sign Out
-                </button>
-                <button
-                  className="btn btn-primary mr-2"
-                  onClick={this.handleUpdateChange}
-                >
-                  Update Profile
-                </button>
-                <button
-                  className="btn btn-primary mr-2"
-                  onClick={this.handleUpdateChange}
-                >
-                  Search Users
-                </button>
-                <UserSearch />
-              </div>
-            ) : (
-              <UpdateForm
-                cancelUpdate={this.handleUpdateChange}
-                handleUpdate={(fNameChange, lNameChange) =>
-                  this.handleUpdate(fNameChange, lNameChange)
-                }
-              />
-            )}
+            {content}
           </div>
         )}
       </div>
@@ -308,6 +320,7 @@ class SignUpForm extends React.Component {
               className="form-control"
               id="firstname"
               name="firstname"
+              value={this.state.firstname}
               onChange={this.handleChange}
             />
           </div>
@@ -320,6 +333,7 @@ class SignUpForm extends React.Component {
               className="form-control"
               id="lastname"
               name="lastname"
+              value={this.state.lastname}
               onChange={this.handleChange}
             />
           </div>
@@ -332,6 +346,7 @@ class SignUpForm extends React.Component {
             id="email"
             type="email"
             name="email"
+            value={this.state.email}
             onChange={this.handleChange}
           />
         </div>
@@ -343,6 +358,7 @@ class SignUpForm extends React.Component {
             id="password"
             type="password"
             name="password"
+            value={this.state.password}
             onChange={this.handleChange}
           />
         </div>
@@ -355,6 +371,7 @@ class SignUpForm extends React.Component {
               id="passwordConf"
               type="password"
               name="passwordConf"
+              value={this.state.passwordConf}
               onChange={this.handleChange}
             />
           </div>
@@ -367,6 +384,7 @@ class SignUpForm extends React.Component {
               className="form-control"
               id="username"
               name="username"
+              value={this.state.username}
               onChange={this.handleChange}
             />
           </div>

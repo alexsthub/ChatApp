@@ -20,12 +20,12 @@ export default class AutocompleteProfile extends React.Component {
             marginLeft: 10
           }}
         >
-          {this.props.user.username}
+          {this.props.user.userName}
         </p>
         <p style={{ marginRight: 3 }}>
-          {this.toTitle(this.props.user.firstname)}{" "}
+          {this.toTitle(this.props.user.firstName)}{" "}
         </p>
-        <p>{this.toTitle(this.props.user.lastname)}</p>
+        <p>{this.toTitle(this.props.user.lastName)}</p>
       </div>
     );
   }
