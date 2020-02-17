@@ -68,4 +68,29 @@ func TestFindSorting(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	trie := NewTrie()
+	trie.Add("alex", 1)
+	trie.Add("alex", 2)
+	results := trie.Find("alex", 1)
+	if results[0] != 1 {
+		t.Errorf("Should be a value of 10 but didn't get it")
+	}
+	trie.Remove("alex", 3)
+	if results = trie.Find("alex", 1); results[0] != 1 {
+		t.Errorf("Value should still exist after removing a non existent KV pair but it does not")
+	}
+
+	trie.Remove("alex", 1)
+	results = trie.Find("alex", 1)
+	if trie.Len() != 1 || len(results) != 1 {
+		t.Errorf("Length of trie should be 1 and results should have 1 value but got length of %d and results of %v", trie.Len(), results)
+	}
+
+	// Trim the tree
+	trie.Add("rico", 10)
+	trie.Remove("rico", 10)
+	results = trie.Find("rico", 1)
+	if len(results) != 0 || trie.Len() != 1 {
+		t.Errorf("Results should be empty and length of tree should be 1")
+	}
+
 }

@@ -139,19 +139,34 @@ func (t *Trie) Remove(key string, value int64) {
 	}
 	// Current node is the node to remove value from
 	var index int
+	var found bool
 	valueList := currentNode.value
 	for i, v := range valueList {
 		if v == value {
-			index = int(i)
+			index = i
+			found = true
 		}
 	}
-	valueList = append(valueList[0:index], valueList[index+1:]...)
-	currentNode.value = valueList
+	if !found {
+		return
+	}
+	if len(valueList) == 1 {
+		currentNode.value = []int64{}
+	} else {
+		valueList[index] = valueList[len(valueList)-1]
+		valueList[len(valueList)-1] = 0
+		valueList = valueList[:len(valueList)-1]
+		currentNode.value = valueList
+	}
 	t.size--
 	for {
 		// If node is leafNode && valueList is empty, trim up until there is a value
 		if len(currentNode.children) == 0 && len(currentNode.value) == 0 {
 			delNode := currentNode
+			// Reached root node
+			if delNode.parent == nil {
+				break
+			}
 			currentNode = currentNode.parent
 			delete(currentNode.children, delNode.key)
 		} else {
