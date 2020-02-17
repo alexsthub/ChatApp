@@ -1,11 +1,12 @@
 import React from "react";
 import "./App.css";
+import UserSearch from "./UserSearch";
 
 export default class App extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      user: null,
+      user: {},
       showUpdate: false
     };
   }
@@ -147,7 +148,7 @@ export default class App extends React.Component {
 
             {!this.state.showUpdate ? (
               <div>
-                <p>Best I can do for you are these two options</p>
+                <p>Best I can do for you are these options</p>
                 <button
                   className="btn btn-primary mr-2"
                   onClick={this.handleSignOut}
@@ -160,6 +161,13 @@ export default class App extends React.Component {
                 >
                   Update Profile
                 </button>
+                <button
+                  className="btn btn-primary mr-2"
+                  onClick={this.handleUpdateChange}
+                >
+                  Search Users
+                </button>
+                <UserSearch />
               </div>
             ) : (
               <UpdateForm
