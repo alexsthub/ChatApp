@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"time"
 
@@ -50,7 +52,10 @@ func main() {
 	ctx.UserTrie = userTrie
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/summary/", handlers.SummaryHandler)
+	// Reverse proxy for summary
+	summaryProxy := httputil.NewSingleHostReverseProxy(&url.URL{Scheme: "http", Host: "localhost:80"})
+	mux.Handle("/v1/summary/", summaryProxy)
+
 	mux.HandleFunc("/v1/users", ctx.UsersHandler)
 	mux.HandleFunc("/v1/users/", ctx.SpecificUsersHandler)
 	mux.HandleFunc("/v1/sessions", ctx.SessionsHandler)
