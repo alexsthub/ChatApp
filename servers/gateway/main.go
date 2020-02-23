@@ -2,10 +2,13 @@ package main
 
 import (
 	"log"
+	"math/rand"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/UW-Info-441-Winter-Quarter-2020/homework-alexsthub/servers/gateway/handlers"
@@ -13,6 +16,24 @@ import (
 	"github.com/UW-Info-441-Winter-Quarter-2020/homework-alexsthub/servers/gateway/sessions"
 	"github.com/go-redis/redis"
 )
+
+// Director is a director
+type Director func(r *http.Request)
+
+// CustomDirector preprocesses the request for the microservice
+// TODO: Check for current authenticated user?
+func CustomDirector(targets []*url.URL) Director {
+	var counter int32
+	counter = 0
+	return func(r *http.Request) {
+		targ := targets[rand.Int()%len(targets)]
+		atomic.AddInt32(&counter, 1)
+		r.Header.Add("X-Forwarded-Host", r.Host)
+		r.Host = targ.Host
+		r.URL.Host = targ.Host
+		r.URL.Scheme = targ.Scheme
+	}
+}
 
 //main is the main entry point for the server
 func main() {
@@ -52,9 +73,18 @@ func main() {
 	ctx.UserTrie = userTrie
 
 	mux := http.NewServeMux()
-	// Reverse proxy for summary
-	summaryProxy := httputil.NewSingleHostReverseProxy(&url.URL{Scheme: "http", Host: "localhost:80"})
-	mux.Handle("/v1/summary/", summaryProxy)
+	// TODO: Reverse proxy for summary and messages. How to convert this string to url?
+	for _, port := range strings.Split(os.Getenv("SUMMARYADDR"), ",") {
+		addr := "http:localhost:" + port
+		summaryProxy := &httputil.ReverseProxy{Director: CustomDirector(addr)}
+		mux.Handle("/v1/summary/", summaryProxy)
+	}
+	for _, port := range strings.Split(os.Getenv("MESSAGESADDR"), ",") {
+		addr := "http:localhost:" + port
+		messagesProxy := &httputil.ReverseProxy{Director: CustomDirector(addr)}
+		mux.Handle("/v1/channels", messagesProxy)
+		mux.Handle("/v1/messages", messagesProxy)
+	}
 
 	mux.HandleFunc("/v1/users", ctx.UsersHandler)
 	mux.HandleFunc("/v1/users/", ctx.SpecificUsersHandler)

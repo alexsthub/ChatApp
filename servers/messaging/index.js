@@ -3,6 +3,8 @@
 const express = require("express");
 const morgan = require("morgan");
 const bodyParser = require("body-parser");
+const url = require("url");
+const MongoClient = require("mongodb").MongoClient;
 
 const app = express();
 app.use(express.json());
@@ -12,13 +14,13 @@ app.use(bodyParser);
 const addr = process.env.ADDR || ":80";
 const [host, port] = addr.split(":");
 
-const MongoClient = require("mongodb").MongoClient;
 const conn_url = "mongodb://localhost:27017/messages";
 let dbClient;
 MongoClient.connect(conn_url, function(err, client) {
   if (!err) {
     console.log("Successfully connected to db");
     dbClient = client.db("messages");
+    dbClient.collection("channels").createIndex({ name: 1 }, { unique: true });
     const generalChannel = {
       id: 1,
       name: "General",
@@ -29,10 +31,16 @@ MongoClient.connect(conn_url, function(err, client) {
       creator: null,
       editedAt: null
     };
-    // TODO: Collection shit
-    dbClient.collection("channels").insertOne(generalChannel, function(err) {
-      if (err) throw err;
-    });
+    dbClient
+      .collection("channels")
+      .updateOne(
+        { name: "General" },
+        { $set: generalChannel },
+        { upsert: true },
+        function(err) {
+          if (err) throw err;
+        }
+      );
   } else {
     throw err;
   }
@@ -41,6 +49,7 @@ MongoClient.connect(conn_url, function(err, client) {
 // Return true is used is authenticated, false otherwise
 function isAuthenticated(req) {
   const authenticated = req.header("X-user");
+  console.log(authenticated);
   if (typeof authenticated === "undefined" || !authenticated) {
     return false;
   }
@@ -89,6 +98,7 @@ app.get("/v1/channels", (req, res, next) => {
   // Respond with the list of all channels (just the channel models, not the messages in those channels)
   // that the current user is allowed to see, encoded as a JSON array.
   // Include a Content-Type header set to application/json so that your client knows what sort of data is in the response body.
+  console.log("hello");
   if (!isAuthenticated(req)) {
     res.status(401);
     res.send("User is not authenticated");
@@ -137,7 +147,7 @@ app.post("/v1/channels", (req, res, next) => {
 
 // Get a specific channel
 app.get("/v1/channels/:channelID", (req, res, next) => {
-  // TODO: If this is a private channel and the current user is not a member, respond with a 403 (Forbidden) status code.
+  // If this is a private channel and the current user is not a member, respond with a 403 (Forbidden) status code.
   // Otherwise, respond with the most recent 100 messages posted to the specified channel, encoded as a JSON array of message model objects.
   // Include a Content-Type header set to application/json so that your client knows what sort of data is in the response body.
   if (!isAuthenticated(req)) {
@@ -152,10 +162,22 @@ app.get("/v1/channels/:channelID", (req, res, next) => {
     res.send("Channel is private and user is not a member");
     return;
   }
+
+  // Check the before parameter
+  const queryObject = url.parse(req.url, true).query;
+  let beforeID = null;
+  if (queryObject.before) {
+    beforeID = queryObject.before;
+  }
+
+  const query = {
+    channelID: channelID,
+    _id: beforeID ? { $lt: beforeID } : undefined
+  };
   // Query the messages to get first 100
   dbClient
     .collection("messages")
-    .find({ channelID: channelID })
+    .find(query)
     .sort({ createdAt: -1 })
     .limit(100)
     .toArray(function(err, result) {
@@ -227,13 +249,16 @@ app.patch("/v1/channels/:channelID", (req, res, next) => {
   if (reqBody.description !== "") updates.description = reqBody.description;
   dbClient
     .collection("channels")
-    .updateOne(query, { $set: updates }, function(err, response) {
-      if (err) throw err;
-      // todo Is this how i get the response
-      const updatedChannel = response.ops[0];
-      res.set("Content-Type", "application/json");
-      res.json(updatedChannel);
-    });
+    .findOneAndUpdate(
+      query,
+      { $set: updates },
+      { returnOriginal: false },
+      function(err, response) {
+        if (err) throw err;
+        res.set("Content-Type", "application/json");
+        res.json(response);
+      }
+    );
 });
 
 // Delete a channel
@@ -267,7 +292,7 @@ app.delete("/v1/channels/:channelID", (req, res, next) => {
 
 // Add a user to a channel
 app.post(`/v1/channels/:channelID/members`, (req, res, next) => {
-  // TODO:  If the current user isn't the creator of this channel, respond with the status code 403 (Forbidden).
+  // If the current user isn't the creator of this channel, respond with the status code 403 (Forbidden).
   // Otherwise, add the user supplied in the request body as a member of this channel, and respond with a 201 status code and a simple
   // plain text message indicating that the user was added as a member. Only the id property of the user is required,
   // but the client may post the entire user profile.
@@ -277,8 +302,22 @@ app.post(`/v1/channels/:channelID/members`, (req, res, next) => {
   }
   const currentUser = req.header("X-user");
   const channelID = parseInt(req.params.channelID, 10);
+  if (!currentUser.ID) {
+    res.status(400);
+    return;
+  }
   if (isChannelCreator(currentUser, channelID)) {
-    // TODO: Add the user as a member
+    dbClient
+      .collection("channels")
+      .updateOne(
+        { _id: channelID },
+        { $push: { members: { id: req.body.id } } },
+        function(err) {
+          if (err) throw err;
+          res.status(201);
+          res.send("User added to channel");
+        }
+      );
   } else {
     res.status(403);
     res.send("User is not creator of this channel");
@@ -287,26 +326,94 @@ app.post(`/v1/channels/:channelID/members`, (req, res, next) => {
 
 // Delete a user from a channel
 app.delete(`/v1/channels/:channelID/members`, (req, res, next) => {
-  // TODO: If the current user isn't the creator of this channel, respond with the status code 403 (Forbidden).
+  // If the current user isn't the creator of this channel, respond with the status code 403 (Forbidden).
   // Otherwise, remove the user supplied in the request body from the list of channel members, and respond with a 200 status code
   // and a simple plain text message indicating that the user was removed from the list of members. Only the id property of the user is required,
   // but the client may post the entire user profile.
+  if (!isAuthenticated(req)) {
+    res.status(401);
+    res.send("User is not authenticated");
+  }
+  const currentUser = req.header("X-user");
+  const channelID = parseInt(req.params.channelID, 10);
+  if (isChannelCreator(currentUser, channelID)) {
+    dbClient
+      .collection("channels")
+      .updateOne(
+        { _id: channelID },
+        { $pull: { members: { id: req.body.id } } },
+        function(err) {
+          if (err) throw err;
+          res.status(200);
+          res.send("User removed from channel");
+        }
+      );
+  }
 });
 
 // Edit a message
-app.patch("/v1/messages/", (req, res, next) => {
+app.patch("/v1/messages/:messageID", (req, res, next) => {
   // TODO: If the current user isn't the creator of this message, respond with the status code 403 (Forbidden).
   // Otherwise, update the message body property using the JSON in the request body, and respond with a copy of the newly-updated message,
   // encoded as a JSON object. Include a Content-Type header set to application/json so that your client knows what sort of data is in the
   // response body.
+  if (!isAuthenticated(req)) {
+    res.status(401);
+    res.send("User is not authenticated");
+  }
+  const user = getCurrentUser(req);
+  const messageID = parseInt(req.params.messageID, 10);
+  // Get the message
+  dbClient
+    .collection("messages")
+    .findOne({ _id: messageID }, function(err, result) {
+      if (err) throw err;
+      if (result.creator.ID != user.ID) {
+        res.status(403);
+        res.send("User is not the creator of the message");
+        return;
+      }
+    });
+  dbClient
+    .collection("messages")
+    .findOneAndUpdate(
+      { _id: messageID },
+      { $set: { body: req.body.message } },
+      { returnOriginal: false },
+      function(err, result) {
+        if (err) throw err;
+        res.set("Content-Type", "application/json");
+        res.send(result);
+      }
+    );
 });
 
 // Delete a message
-app.delete("/v1/messages/", (req, res, next) => {
-  // TODO: If the current user isn't the creator of this message, respond with the status code 403 (Forbidden).
+app.delete("/v1/messages/:messageID", (req, res, next) => {
+  // If the current user isn't the creator of this message, respond with the status code 403 (Forbidden).
   // Otherwise, delete the message and respond with a the plain text message indicating that the delete was successful.
+  if (!isAuthenticated(req)) {
+    res.status(401);
+    res.send("User is not authenticated");
+  }
+  const user = getCurrentUser(req);
+  const messageID = parseInt(req.params.messageID, 10);
+  dbClient
+    .collection("messages")
+    .findOne({ _id: messageID }, function(err, result) {
+      if (err) throw err;
+      if (result.creator.ID != user.ID) {
+        res.status(403);
+        res.send("User is not the creator of the message");
+        return;
+      }
+    });
+  dbClient.collection("messages").deleteOne({ _id: messageID }, function(err) {
+    if (err) throw err;
+    res.send("Message successfully deleted");
+  });
 });
 
 app.listen(port, host, () => {
-  console.log(`server is listening at http://${addr}...`);
+  console.log(`server is listening at http://${addr}`);
 });
