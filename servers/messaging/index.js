@@ -59,18 +59,24 @@ function getCurrentUser(req) {
 }
 
 // Returns true if user has access to a channel, false otherwise
-function canAccessChannel(currentUser, channelID) {
+function canAccessChannel(currentUser, channelID, callback) {
   dbClient
     .collection("channels")
     .findOne({ _id: new ObjectId(channelID) }, function(err, response) {
       if (err) throw err;
+      if (!response) {
+        callback(false);
+        return;
+      }
       if (response.private) {
         const members = JSON.parse(response.members);
         if (!members.some(m => m.id === currentUser.id)) {
-          return false;
+          callback(false);
+          return;
         }
       } else {
-        return true;
+        callback(true);
+        return;
       }
     });
 }
@@ -91,12 +97,7 @@ function isChannelCreator(currentUser, channelID) {
 }
 
 app.use((err, req, res, next) => {
-  //write a stack trace to standard out,
-  //which writes to the server's log
   console.error(err.stack);
-
-  //but only report the error message
-  //to the client, with a 500 status code
   res.set("Content-Type", "text/plain");
   res.status(500).send(err.message);
 });
@@ -142,7 +143,7 @@ app.post("/v1/channels", (req, res, next) => {
     newChannel.members = [currentUser];
   } else {
     newChannel.private = false;
-    newChannel.members = [];
+    newChannel.members = [currentUser];
   }
   newChannel.createdAt = Date.now();
   newChannel.creator = currentUser;
@@ -157,7 +158,6 @@ app.post("/v1/channels", (req, res, next) => {
           throw err;
         }
       }
-      // newChannel.id = response.insertedId;
       res.status(201);
       res.set("Content-Type", "application/json");
       res.json(newChannel);
@@ -177,12 +177,13 @@ app.get("/v1/channels/:channelID", (req, res, next) => {
   const currentUser = getCurrentUser(req);
   const channelID = req.params.channelID;
   // Check if channel is private and if current user is a member
-  const access = canAccessChannel(currentUser, channelID);
-  if (access) {
-    res.status(403);
-    res.send("Channel is private and user is not a member");
-    return;
-  }
+  canAccessChannel(currentUser, channelID, function(access) {
+    if (!access) {
+      res.status(403);
+      res.send("Cannot access channel");
+      return;
+    }
+  });
 
   // Check the before parameter
   const queryObject = url.parse(req.url, true).query;
@@ -223,12 +224,13 @@ app.post("/v1/channels/:channelID", (req, res, next) => {
   }
   const currentUser = getCurrentUser(req);
   const channelID = req.params.channelID;
-  const access = canAccessChannel(currentUser, channelID);
-  if (access) {
-    res.status(403);
-    res.send("Channel is private and user is not a member");
-    return;
-  }
+  canAccessChannel(currentUser, channelID, function(access) {
+    if (!access) {
+      res.status(403);
+      res.send("Cannot access channel");
+      return;
+    }
+  });
   let newMessage = {
     channelID: channelID,
     body: req.body.body,
@@ -258,11 +260,14 @@ app.patch("/v1/channels/:channelID", (req, res, next) => {
   }
   const currentUser = getCurrentUser(req);
   const channelID = req.params.channelID;
-  if (canAccessChannel(currentUser, channelID)) {
-    res.status(403);
-    res.send("Channel is private and user is not a member");
-    return;
-  }
+  canAccessChannel(currentUser, channelID, function(access) {
+    console.log(access);
+    if (!access) {
+      res.status(403);
+      res.send("Cannot access channel");
+      return;
+    }
+  });
 
   const query = { _id: new ObjectId(channelID) };
   let updates = {};
@@ -293,16 +298,18 @@ app.delete("/v1/channels/:channelID", (req, res, next) => {
     return;
   }
   const currentUser = getCurrentUser(req);
-  const channelID = parseInt(req.params.channelID, 10);
+  const channelID = req.params.channelID;
   if (!canAccessChannel(currentUser, channelID)) {
     res.status(403);
-    res.send("Channel is private and user is not a member");
+    res.send("Cannot access channel");
     return;
   }
 
-  dbClient.collection("channels").deleteOne({ _id: channelID }, function(err) {
-    if (err) throw err;
-  });
+  dbClient
+    .collection("channels")
+    .deleteOne({ _id: new ObjectId(channelID) }, function(err) {
+      if (err) throw err;
+    });
 
   dbClient
     .collection("messages")
