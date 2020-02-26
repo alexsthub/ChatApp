@@ -53,9 +53,16 @@ function isAuthenticated(req) {
 }
 
 // Returns the current authenticated user
+// TODO: I NEED TO PARSE THIS TWICE
 function getCurrentUser(req) {
-  const user = req.header("X-user");
-  return JSON.parse(user);
+  let user = req.header("X-user");
+  user = JSON.parse(user);
+  user = JSON.parse(user);
+  // console.log("fuck");
+  // console.log(typeof user);
+  // console.log(user);
+  // console.log(JSON.stringify(user));
+  return user;
 }
 
 // Returns true if user has access to a channel, false otherwise
@@ -112,13 +119,22 @@ app.get("/v1/channels", (req, res, next) => {
     res.send("User is not authenticated");
     return;
   }
+  const currentUser = getCurrentUser(req);
   dbClient
     .collection("channels")
     .find({})
     .toArray(function(err, result) {
       if (err) throw err;
+      const filteredChannels = result.filter(function(ch) {
+        return (
+          ch.members.some(function(mem) {
+            const member = JSON.parse(mem);
+            return member.id === currentUser.id;
+          }) || ch.private === false
+        );
+      });
       res.set("Content-Type", "application/json");
-      res.json(result);
+      res.json(filteredChannels);
     });
 });
 
@@ -154,6 +170,7 @@ app.post("/v1/channels", (req, res, next) => {
         if ((err.code === 11000) & err.keyPattern.name) {
           res.status(400);
           res.send("Channel name already exists");
+          return;
         } else {
           throw err;
         }
@@ -177,7 +194,9 @@ app.get("/v1/channels/:channelID", (req, res, next) => {
   const currentUser = getCurrentUser(req);
   const channelID = req.params.channelID;
   // Check if channel is private and if current user is a member
+  // TODO: WTF IS HAPPENING HERE
   canAccessChannel(currentUser, channelID, function(access) {
+    console.log(access);
     if (!access) {
       res.status(403);
       res.send("Cannot access channel");
@@ -203,8 +222,11 @@ app.get("/v1/channels/:channelID", (req, res, next) => {
     .sort({ createdAt: -1 })
     .limit(100)
     .toArray(function(err, result) {
-      if (err) throw err;
-      res.status(200);
+      if (err) {
+        console.log(err);
+        throw err;
+      }
+      // res.status(200);
       res.set("Content-Type", "application/json");
       res.json(result);
     });
@@ -260,6 +282,7 @@ app.patch("/v1/channels/:channelID", (req, res, next) => {
   }
   const currentUser = getCurrentUser(req);
   const channelID = req.params.channelID;
+  // TODO: Test on a private channel
   canAccessChannel(currentUser, channelID, function(access) {
     console.log(access);
     if (!access) {
