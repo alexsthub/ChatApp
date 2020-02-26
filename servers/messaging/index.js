@@ -58,10 +58,6 @@ function getCurrentUser(req) {
   let user = req.header("X-user");
   user = JSON.parse(user);
   user = JSON.parse(user);
-  // console.log("fuck");
-  // console.log(typeof user);
-  // console.log(user);
-  // console.log(JSON.stringify(user));
   return user;
 }
 
@@ -70,14 +66,12 @@ function canAccessChannel(currentUser, channelID, callback) {
   dbClient
     .collection("channels")
     .findOne({ _id: new ObjectId(channelID) }, function(err, response) {
-      if (err) throw err;
       if (!response) {
         callback(false);
         return;
       }
       if (response.private) {
-        const members = JSON.parse(response.members);
-        if (!members.some(m => m.id === currentUser.id)) {
+        if (!response.members.some(m => m.id === currentUser.id)) {
           callback(false);
           return;
         }
@@ -89,16 +83,21 @@ function canAccessChannel(currentUser, channelID, callback) {
 }
 
 // Returns true if the current user is the creator of a channel, false otherwise
-function isChannelCreator(currentUser, channelID) {
+function isChannelCreator(currentUser, channelID, callback) {
   dbClient
     .collection("channels")
     .findOne({ _id: new ObjectId(channelID) }, function(err, response) {
-      if (err) throw err;
       const creator = response.creator;
+      if (!creator) {
+        callback(false);
+        return;
+      }
       if (currentUser.ID === creator.ID) {
-        return true;
+        callback(true);
+        return;
       } else {
-        return false;
+        callback(false);
+        return;
       }
     });
 }
@@ -124,13 +123,16 @@ app.get("/v1/channels", (req, res, next) => {
     .collection("channels")
     .find({})
     .toArray(function(err, result) {
-      if (err) throw err;
+      if (err) {
+        res.status(400);
+        res.send("Error getting channels");
+        return;
+      }
       const filteredChannels = result.filter(function(ch) {
         return (
           ch.members.some(function(mem) {
-            const member = JSON.parse(mem);
-            return member.id === currentUser.id;
-          }) || ch.private === false
+            return mem.id === currentUser.id;
+          }) || !ch.private
         );
       });
       res.set("Content-Type", "application/json");
@@ -143,6 +145,7 @@ app.post("/v1/channels", (req, res, next) => {
   // Create a new channel using the channel model JSON in the request body.
   // The name property is required, but description is optional. Respond with a 201 status code, a Content-Type set to application/json,
   // and a copy of the new channel model (including its new ID) encoded as a JSON object.
+  console.log("ADDING channel");
   if (!isAuthenticated(req)) {
     res.status(401);
     res.send("User is not authenticated");
@@ -166,18 +169,16 @@ app.post("/v1/channels", (req, res, next) => {
   dbClient
     .collection("channels")
     .insertOne(newChannel, function(err, response) {
-      if (err) {
-        if ((err.code === 11000) & err.keyPattern.name) {
-          res.status(400);
-          res.send("Channel name already exists");
-          return;
-        } else {
-          throw err;
-        }
+      if (err && (err.code === 11000) & err.keyPattern.name) {
+        res.status(400);
+        res.send("Channel name already exists");
+        return;
+      } else {
+        res.status(201);
+        res.set("Content-Type", "application/json");
+        res.json(newChannel);
+        return;
       }
-      res.status(201);
-      res.set("Content-Type", "application/json");
-      res.json(newChannel);
     });
 });
 
@@ -194,9 +195,7 @@ app.get("/v1/channels/:channelID", (req, res, next) => {
   const currentUser = getCurrentUser(req);
   const channelID = req.params.channelID;
   // Check if channel is private and if current user is a member
-  // TODO: WTF IS HAPPENING HERE
   canAccessChannel(currentUser, channelID, function(access) {
-    console.log(access);
     if (!access) {
       res.status(403);
       res.send("Cannot access channel");
@@ -206,15 +205,14 @@ app.get("/v1/channels/:channelID", (req, res, next) => {
 
   // Check the before parameter
   const queryObject = url.parse(req.url, true).query;
-  let beforeID = null;
+  const query = {
+    channelID: channelID
+  };
   if (queryObject.before) {
-    beforeID = queryObject.before;
+    const beforeID = queryObject.before;
+    query._id = { $lt: beforeID };
   }
 
-  const query = {
-    channelID: channelID,
-    _id: beforeID ? { $lt: beforeID } : undefined
-  };
   // Query the messages to get first 100
   dbClient
     .collection("messages")
@@ -223,12 +221,14 @@ app.get("/v1/channels/:channelID", (req, res, next) => {
     .limit(100)
     .toArray(function(err, result) {
       if (err) {
-        console.log(err);
-        throw err;
+        res.status(400);
+        res.send("Error adding message to channel");
+        return;
+      } else {
+        res.set("Content-Type", "application/json");
+        res.json(result);
+        return;
       }
-      // res.status(200);
-      res.set("Content-Type", "application/json");
-      res.json(result);
     });
 });
 
@@ -262,10 +262,15 @@ app.post("/v1/channels/:channelID", (req, res, next) => {
   dbClient
     .collection("messages")
     .insertOne(newMessage, function(err, response) {
-      if (err) throw err;
-      res.status(201);
-      res.set("Content-Type", "application/json");
-      res.json(newMessage);
+      if (err) {
+        res.status(400);
+        res.send("Error adding message to channel");
+        return;
+      } else {
+        res.status(201);
+        res.set("Content-Type", "application/json");
+        res.json(newMessage);
+      }
     });
 });
 
@@ -282,13 +287,15 @@ app.patch("/v1/channels/:channelID", (req, res, next) => {
   }
   const currentUser = getCurrentUser(req);
   const channelID = req.params.channelID;
-  // TODO: Test on a private channel
+  // TODO: Test on a private channel. This does not actually stop it
   canAccessChannel(currentUser, channelID, function(access) {
     console.log(access);
     if (!access) {
+      console.log("STOP!");
       res.status(403);
       res.send("Cannot access channel");
       return;
+      // TODO: THE RESPONSE IS SENT BUT IT ONLY RETURNS OUT OF CALLBACK NOT FULL?
     }
   });
 
@@ -304,9 +311,15 @@ app.patch("/v1/channels/:channelID", (req, res, next) => {
       { $set: updates },
       { returnOriginal: false },
       function(err, response) {
-        if (err) throw err;
-        res.set("Content-Type", "application/json");
-        res.json(response.value);
+        if (err) {
+          res.status(400);
+          res.send("Error editting channel");
+          return;
+        } else {
+          res.set("Content-Type", "application/json");
+          res.json(response.value);
+          return;
+        }
       }
     );
 });
@@ -322,25 +335,36 @@ app.delete("/v1/channels/:channelID", (req, res, next) => {
   }
   const currentUser = getCurrentUser(req);
   const channelID = req.params.channelID;
-  if (!canAccessChannel(currentUser, channelID)) {
-    res.status(403);
-    res.send("Cannot access channel");
-    return;
-  }
 
+  isChannelCreator(currentUser, channelID, function(access) {
+    if (!access) {
+      res.status(403);
+      res.send("User is not the creator of the channel");
+      // TODO: Return does not return out of whole function
+      return;
+    }
+  });
   dbClient
     .collection("channels")
     .deleteOne({ _id: new ObjectId(channelID) }, function(err) {
-      if (err) throw err;
+      if (err) {
+        res.status(400);
+        res.send("Error deleting channel");
+        return;
+      }
     });
 
   dbClient
     .collection("messages")
     .deleteOne({ channelID: channelID }, function(err) {
-      if (err) throw err;
+      if (err) {
+        res.status(400);
+        res.send("Error deleting all messages from channel");
+        return;
+      }
     });
-
   res.send("Channel successfully deleted");
+  return;
 });
 
 // Add a user to a channel
@@ -354,28 +378,41 @@ app.post(`/v1/channels/:channelID/members`, (req, res, next) => {
     res.send("User is not authenticated");
     return;
   }
-  const currentUser = req.header("X-user");
-  const channelID = parseInt(req.params.channelID, 10);
-  if (!currentUser.ID) {
+
+  const currentUser = getCurrentUser(req);
+  const channelID = req.params.channelID;
+  if (!currentUser.id || !req.body.id) {
     res.status(400);
+    res.send("ID does not exist");
     return;
   }
-  if (isChannelCreator(currentUser, channelID)) {
-    dbClient
-      .collection("channels")
-      .updateOne(
-        { _id: channelID },
-        { $push: { members: { id: req.body.id } } },
-        function(err) {
-          if (err) throw err;
+
+  isChannelCreator(currentUser, channelID, function(access) {
+    if (!access) {
+      res.status(403);
+      res.send("User is not the creator of the channel");
+      return;
+    }
+  });
+
+  dbClient
+    .collection("channels")
+    .updateOne(
+      { _id: new ObjectId(channelID) },
+      { $push: { members: req.body } },
+      { upsert: true },
+      function(err) {
+        if (err) {
+          res.status(400);
+          res.send("Error adding member to channel");
+          return;
+        } else {
           res.status(201);
           res.send("User added to channel");
+          return;
         }
-      );
-  } else {
-    res.status(403);
-    res.send("User is not creator of this channel");
-  }
+      }
+    );
 });
 
 // Delete a user from a channel
@@ -389,26 +426,44 @@ app.delete(`/v1/channels/:channelID/members`, (req, res, next) => {
     res.send("User is not authenticated");
     return;
   }
-  const currentUser = req.header("X-user");
-  const channelID = parseInt(req.params.channelID, 10);
-  if (isChannelCreator(currentUser, channelID)) {
-    dbClient
-      .collection("channels")
-      .updateOne(
-        { _id: channelID },
-        { $pull: { members: { id: req.body.id } } },
-        function(err) {
-          if (err) throw err;
+  const currentUser = getCurrentUser(req);
+  const channelID = req.params.channelID;
+  if (!currentUser.id || !req.body.id) {
+    res.status(400);
+    res.send("ID does not exist");
+    return;
+  }
+
+  isChannelCreator(currentUser, channelID, function(access) {
+    if (!access) {
+      res.status(403);
+      res.send("User is not the creator of the channel");
+      return;
+    }
+  });
+
+  dbClient
+    .collection("channels")
+    .updateOne(
+      { _id: new ObjectId(channelID) },
+      { $pull: { members: { id: req.body.id } } },
+      function(err) {
+        if (err) {
+          res.status(400);
+          res.send("Error removing member from channel");
+          return;
+        } else {
           res.status(200);
           res.send("User removed from channel");
+          return;
         }
-      );
-  }
+      }
+    );
 });
 
 // Edit a message
 app.patch("/v1/messages/:messageID", (req, res, next) => {
-  // TODO: If the current user isn't the creator of this message, respond with the status code 403 (Forbidden).
+  // If the current user isn't the creator of this message, respond with the status code 403 (Forbidden).
   // Otherwise, update the message body property using the JSON in the request body, and respond with a copy of the newly-updated message,
   // encoded as a JSON object. Include a Content-Type header set to application/json so that your client knows what sort of data is in the
   // response body.
@@ -418,13 +473,18 @@ app.patch("/v1/messages/:messageID", (req, res, next) => {
     return;
   }
   const user = getCurrentUser(req);
-  const messageID = parseInt(req.params.messageID, 10);
+  const messageID = req.params.messageID;
   // Get the message
   dbClient
     .collection("messages")
-    .findOne({ _id: messageID }, function(err, result) {
-      if (err) throw err;
-      if (result.creator.ID != user.ID) {
+    .findOne({ _id: new ObjectId(messageID) }, function(err, result) {
+      if (err) {
+        res.status(400);
+        res.send("");
+        return;
+      }
+      if (result.creator.id != user.id) {
+        // TODO: Didn't actually stop it
         res.status(403);
         res.send("User is not the creator of the message");
         return;
@@ -433,13 +493,19 @@ app.patch("/v1/messages/:messageID", (req, res, next) => {
   dbClient
     .collection("messages")
     .findOneAndUpdate(
-      { _id: messageID },
+      { _id: new ObjectId(messageID) },
       { $set: { body: req.body.message } },
       { returnOriginal: false },
       function(err, result) {
-        if (err) throw err;
-        res.set("Content-Type", "application/json");
-        res.send(result);
+        if (err) {
+          res.status(400);
+          res.send("");
+          return;
+        } else {
+          res.set("Content-Type", "application/json");
+          res.json(result.value);
+          return;
+        }
       }
     );
 });
@@ -454,31 +520,36 @@ app.delete("/v1/messages/:messageID", (req, res, next) => {
     return;
   }
   const user = getCurrentUser(req);
-  const messageID = parseInt(req.params.messageID, 10);
+  const messageID = req.params.messageID;
   dbClient
     .collection("messages")
-    .findOne({ _id: messageID }, function(err, result) {
-      if (err) throw err;
-      if (result.creator.ID != user.ID) {
+    .findOne({ _id: new ObjectId(messageID) }, function(err, result) {
+      if (err) {
+        res.status(400);
+        res.send("");
+        return;
+      }
+      if (result.creator.id != user.id) {
+        // TODO: Didn't actually stop it
         res.status(403);
         res.send("User is not the creator of the message");
         return;
       }
     });
-  dbClient.collection("messages").deleteOne({ _id: messageID }, function(err) {
-    if (err) throw err;
-    res.send("Message successfully deleted");
-  });
+
+  dbClient
+    .collection("messages")
+    .deleteOne({ _id: new ObjectId(messageID) }, function(err) {
+      if (err) {
+        res.status(400);
+        res.send("Error deleting message");
+        return;
+      } else {
+        res.send("Message successfully deleted");
+        return;
+      }
+    });
 });
-
-// app.get("/", (req, res, next) => {
-//   res.set("Content-Type", "text/plain");
-//   res.send("Hello, Node.js!");
-// });
-
-// app.listen(3000, () => {
-//   console.log(`server is listening at http://${addr}`);
-// });
 
 app.listen(port, host, () => {
   console.log(`server is listening at http://${addr}`);
