@@ -23,6 +23,7 @@ type Director func(r *http.Request)
 
 // CustomDirector preprocesses the request for the microservice
 // TODO: Check for current authenticated user?
+// TODO: How to get from string to type url.URL? Explicitly
 func CustomDirector(targets []*url.URL, ctx *handlers.ContextHandler) Director {
 	var counter int32
 	counter = 0
