@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httputil"
-	"net/url"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -22,9 +21,7 @@ import (
 type Director func(r *http.Request)
 
 // CustomDirector preprocesses the request for the microservice
-// TODO: Check for current authenticated user?
-// TODO: How to get from string to type url.URL? Explicitly
-func CustomDirector(targets []*url.URL, ctx *handlers.ContextHandler) Director {
+func CustomDirector(targets []string, ctx *handlers.ContextHandler) Director {
 	var counter int32
 	counter = 0
 	return func(r *http.Request) {
@@ -39,9 +36,9 @@ func CustomDirector(targets []*url.URL, ctx *handlers.ContextHandler) Director {
 		targ := targets[rand.Int()%len(targets)]
 		atomic.AddInt32(&counter, 1)
 		r.Header.Add("X-Forwarded-Host", r.Host)
-		r.Host = targ.Host
-		r.URL.Host = targ.Host
-		r.URL.Scheme = targ.Scheme
+		r.Host = targ
+		r.URL.Host = targ
+		r.URL.Scheme = "http"
 	}
 }
 
@@ -83,18 +80,22 @@ func main() {
 	ctx.UserTrie = userTrie
 
 	mux := http.NewServeMux()
-	// TODO: Reverse proxy for summary and messages. How to convert this string to url?
+	var summaryAddrs []string
 	for _, port := range strings.Split(os.Getenv("SUMMARYADDR"), ",") {
 		addr := "http:localhost:" + port
-		summaryProxy := &httputil.ReverseProxy{Director: CustomDirector(addr, ctx)}
-		mux.Handle("/v1/summary/", summaryProxy)
+		summaryAddrs = append(summaryAddrs, addr)
 	}
+	summaryProxy := &httputil.ReverseProxy{Director: CustomDirector(summaryAddrs, ctx)}
+	mux.Handle("/v1/summary/", summaryProxy)
+
+	var messagesAddrs []string
 	for _, port := range strings.Split(os.Getenv("MESSAGESADDR"), ",") {
 		addr := "http:localhost:" + port
-		messagesProxy := &httputil.ReverseProxy{Director: CustomDirector(addr, ctx)}
-		mux.Handle("/v1/channels", messagesProxy)
-		mux.Handle("/v1/messages", messagesProxy)
+		messagesAddrs = append(messagesAddrs, addr)
 	}
+	messagesProxy := &httputil.ReverseProxy{Director: CustomDirector(messagesAddrs, ctx)}
+	mux.Handle("/v1/channels", messagesProxy)
+	mux.Handle("/v1/messages", messagesProxy)
 
 	mux.HandleFunc("/v1/users", ctx.UsersHandler)
 	mux.HandleFunc("/v1/users/", ctx.SpecificUsersHandler)
