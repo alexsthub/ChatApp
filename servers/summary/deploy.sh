@@ -4,8 +4,8 @@ docker pull alexsthub/summary
 
 docker run \
   -d \
-  -e ADDR=:80
   --network api \
+  -e ADDR=:5000 \
   --name summary \
   alexsthub/summary
 

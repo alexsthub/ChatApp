@@ -9,10 +9,10 @@ const ObjectId = require("mongodb").ObjectID;
 const app = express();
 app.use(express.json());
 app.use(morgan("dev"));
-const addr = process.env.ADDR || ":80";
+const addr = process.env.ADDR || ":6000";
 const [host, port] = addr.split(":");
 
-const conn_url = "mongodb://localhost:27017/messages";
+const conn_url = "mongodb://mongoMessages:27017/messages";
 let dbClient;
 MongoClient.connect(conn_url, function(err, client) {
   if (!err) {

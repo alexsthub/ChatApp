@@ -21,8 +21,8 @@ docker run \
   -e TLSCERT="/etc/letsencrypt/live/api.alexst.me/fullchain.pem" \
   -e SESSIONKEY="mytestkey123" \
   -e REDISADDR="redisDB:6379" \
-  -e SUMMARYADDR="5001" \
-  -e MESSAGESADDR="6001" \
+  -e SUMMARYADDR="5000" \
+  -e MESSAGESADDR="6000" \
   -e DSN="root:databasepassword@tcp(mysql:3306)/usersDB" \
   --name gateway \
   alexsthub/gateway
