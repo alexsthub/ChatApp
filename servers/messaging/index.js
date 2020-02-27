@@ -61,25 +61,19 @@ function getCurrentUser(req) {
   return user;
 }
 
-// Returns true if user has access to a channel, false otherwise
-function canAccessChannel(currentUser, channelID, callback) {
-  dbClient
+async function canAccessChannel(currentUser, channelID) {
+  let res = await dbClient
     .collection("channels")
-    .findOne({ _id: new ObjectId(channelID) }, function(err, response) {
-      if (!response) {
-        callback(false);
-        return;
-      }
-      if (response.private) {
-        if (!response.members.some(m => m.id === currentUser.id)) {
-          callback(false);
-          return;
-        }
-      } else {
-        callback(true);
-        return;
-      }
-    });
+    .findOne({ _id: new ObjectId(channelID) });
+  if (!res) {
+    return false;
+  }
+  if (res.private) {
+    if (!res.members.some(m => m.id === currentUser.id)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 // Returns true if the current user is the creator of a channel, false otherwise
@@ -145,7 +139,6 @@ app.post("/v1/channels", (req, res, next) => {
   // Create a new channel using the channel model JSON in the request body.
   // The name property is required, but description is optional. Respond with a 201 status code, a Content-Type set to application/json,
   // and a copy of the new channel model (including its new ID) encoded as a JSON object.
-  console.log("ADDING channel");
   if (!isAuthenticated(req)) {
     res.status(401);
     res.send("User is not authenticated");
@@ -195,13 +188,12 @@ app.get("/v1/channels/:channelID", (req, res, next) => {
   const currentUser = getCurrentUser(req);
   const channelID = req.params.channelID;
   // Check if channel is private and if current user is a member
-  canAccessChannel(currentUser, channelID, function(access) {
-    if (!access) {
-      res.status(403);
-      res.send("Cannot access channel");
-      return;
-    }
-  });
+  const access = await canAccessChannel(currentUser, channelID);
+  if (!access) {
+    res.status(403);
+    res.send("Cannot access channel");
+    return;
+  }
 
   // Check the before parameter
   const queryObject = url.parse(req.url, true).query;
@@ -246,13 +238,14 @@ app.post("/v1/channels/:channelID", (req, res, next) => {
   }
   const currentUser = getCurrentUser(req);
   const channelID = req.params.channelID;
-  canAccessChannel(currentUser, channelID, function(access) {
-    if (!access) {
-      res.status(403);
-      res.send("Cannot access channel");
-      return;
-    }
-  });
+
+  const access = await canAccessChannel(currentUser, channelID);
+  if (!access) {
+    res.status(403);
+    res.send("Cannot access channel");
+    return;
+  }
+
   let newMessage = {
     channelID: channelID,
     body: req.body.body,
@@ -275,7 +268,7 @@ app.post("/v1/channels/:channelID", (req, res, next) => {
 });
 
 // Edit the channel name/description
-app.patch("/v1/channels/:channelID", (req, res, next) => {
+app.patch("/v1/channels/:channelID", async (req, res, next) => {
   // If the current user isn't the creator of this channel, respond with the status code 403 (Forbidden).
   // Otherwise, update only the name and/or description using the JSON in the request body and respond with a copy of the newly-updated channel,
   // encoded as a JSON object. Include a Content-Type header set to application/json so that your client knows what sort of data is in the
@@ -287,17 +280,13 @@ app.patch("/v1/channels/:channelID", (req, res, next) => {
   }
   const currentUser = getCurrentUser(req);
   const channelID = req.params.channelID;
-  // TODO: Test on a private channel. This does not actually stop it
-  canAccessChannel(currentUser, channelID, function(access) {
-    console.log(access);
-    if (!access) {
-      console.log("STOP!");
-      res.status(403);
-      res.send("Cannot access channel");
-      return;
-      // TODO: THE RESPONSE IS SENT BUT IT ONLY RETURNS OUT OF CALLBACK NOT FULL?
-    }
-  });
+
+  const access = await canAccessChannel(currentUser, channelID);
+  if (!access) {
+    res.status(403);
+    res.send("Cannot access channel");
+    return;
+  }
 
   const query = { _id: new ObjectId(channelID) };
   let updates = {};
