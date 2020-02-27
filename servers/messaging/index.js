@@ -92,6 +92,17 @@ async function isChannelCreator(currentUser, channelID) {
   }
 }
 
+// Returns true if the current user is the creator of a message, false otherwise
+async function isMessageCreator(currentUser, messageID) {
+  let res = await dbClient
+    .collection("messages")
+    .findOne({ _id: new ObjectId(messageID) });
+  if (res.creator.id != currentUser.id) {
+    return false;
+  }
+  return true;
+}
+
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.set("Content-Type", "text/plain");
@@ -416,11 +427,7 @@ app.delete(`/v1/channels/:channelID/members`, async (req, res, next) => {
 });
 
 // Edit a message
-app.patch("/v1/messages/:messageID", (req, res, next) => {
-  // If the current user isn't the creator of this message, respond with the status code 403 (Forbidden).
-  // Otherwise, update the message body property using the JSON in the request body, and respond with a copy of the newly-updated message,
-  // encoded as a JSON object. Include a Content-Type header set to application/json so that your client knows what sort of data is in the
-  // response body.
+app.patch("/v1/messages/:messageID", async (req, res, next) => {
   if (!isAuthenticated(req)) {
     res.status(401);
     res.send("User is not authenticated");
@@ -428,22 +435,14 @@ app.patch("/v1/messages/:messageID", (req, res, next) => {
   }
   const user = getCurrentUser(req);
   const messageID = req.params.messageID;
-  // Get the message
-  dbClient
-    .collection("messages")
-    .findOne({ _id: new ObjectId(messageID) }, function(err, result) {
-      if (err) {
-        res.status(400);
-        res.send("");
-        return;
-      }
-      if (result.creator.id != user.id) {
-        // TODO: Didn't actually stop it
-        res.status(403);
-        res.send("User is not the creator of the message");
-        return;
-      }
-    });
+
+  const access = await isMessageCreator(user, messageID);
+  if (!access) {
+    res.status(403);
+    res.send("User is not the creator of the message");
+    return;
+  }
+
   dbClient
     .collection("messages")
     .findOneAndUpdate(
@@ -465,7 +464,7 @@ app.patch("/v1/messages/:messageID", (req, res, next) => {
 });
 
 // Delete a message
-app.delete("/v1/messages/:messageID", (req, res, next) => {
+app.delete("/v1/messages/:messageID", async (req, res, next) => {
   // If the current user isn't the creator of this message, respond with the status code 403 (Forbidden).
   // Otherwise, delete the message and respond with a the plain text message indicating that the delete was successful.
   if (!isAuthenticated(req)) {
@@ -475,21 +474,13 @@ app.delete("/v1/messages/:messageID", (req, res, next) => {
   }
   const user = getCurrentUser(req);
   const messageID = req.params.messageID;
-  dbClient
-    .collection("messages")
-    .findOne({ _id: new ObjectId(messageID) }, function(err, result) {
-      if (err) {
-        res.status(400);
-        res.send("");
-        return;
-      }
-      if (result.creator.id != user.id) {
-        // TODO: Didn't actually stop it
-        res.status(403);
-        res.send("User is not the creator of the message");
-        return;
-      }
-    });
+
+  const access = await isMessageCreator(user, messageID);
+  if (!access) {
+    res.status(403);
+    res.send("User is not the creator of the message");
+    return;
+  }
 
   dbClient
     .collection("messages")
