@@ -1,5 +1,15 @@
 package users
 
+import (
+	"crypto/md5"
+	"encoding/hex"
+	"fmt"
+	"net/mail"
+	"strings"
+
+	"golang.org/x/crypto/bcrypt"
+)
+
 //gravatarBasePhotoURL is the base URL for Gravatar image requests.
 //See https://id.gravatar.com/site/implement/images/ for details
 const gravatarBasePhotoURL = "https://www.gravatar.com/avatar/"
@@ -43,21 +53,34 @@ type Updates struct {
 //Validate validates the new user and returns an error if
 //any of the validation rules fail, or nil if its valid
 func (nu *NewUser) Validate() error {
-	//TODO: validate the new user according to these rules:
 	//- Email field must be a valid email address (hint: see mail.ParseAddress)
 	//- Password must be at least 6 characters
 	//- Password and PasswordConf must match
 	//- UserName must be non-zero length and may not contain spaces
 	//use fmt.Errorf() to generate appropriate error messages if
 	//the new user doesn't pass one of the validation rules
-
+	_, err := mail.ParseAddress(nu.Email)
+	if err != nil {
+		return fmt.Errorf("Must be a valid email address")
+	}
+	if len(nu.Password) < 6 {
+		return fmt.Errorf("Password must be at least 6 characters")
+	}
+	if nu.Password != nu.PasswordConf {
+		return fmt.Errorf("Password and password confirmation do not match")
+	}
+	if len(nu.UserName) == 0 {
+		return fmt.Errorf("Username must not be empty")
+	}
+	if strings.Contains(nu.UserName, " ") {
+		return fmt.Errorf("Username must not contain spaces")
+	}
 	return nil
 }
 
 //ToUser converts the NewUser to a User, setting the
 //PhotoURL and PassHash fields appropriately
 func (nu *NewUser) ToUser() (*User, error) {
-	//TODO: call Validate() to validate the NewUser and
 	//return any validation errors that may occur.
 	//if valid, create a new *User and set the fields
 	//based on the field values in `nu`.
@@ -69,10 +92,26 @@ func (nu *NewUser) ToUser() (*User, error) {
 	//see https://en.gravatar.com/site/implement/hash/
 	//and https://en.gravatar.com/site/implement/images/
 
-	//TODO: also call .SetPassword() to set the PassHash
-	//field of the User to a hash of the NewUser.Password
+	err := nu.Validate()
+	if err != nil {
+		return nil, err
+	}
 
-	return nil, nil
+	cleanEmail := strings.ToLower(strings.TrimSpace(nu.Email))
+	hasher := md5.New()
+	hasher.Write([]byte(cleanEmail))
+	photoURL := gravatarBasePhotoURL + hex.EncodeToString(hasher.Sum(nil))
+
+	user := &User{
+		Email:     nu.Email,
+		UserName:  nu.UserName,
+		FirstName: nu.FirstName,
+		LastName:  nu.LastName,
+		PhotoURL:  photoURL,
+	}
+	user.SetPassword(nu.Password)
+
+	return user, nil
 }
 
 //FullName returns the user's full name, in the form:
@@ -81,34 +120,47 @@ func (nu *NewUser) ToUser() (*User, error) {
 //space is put between the names. If both are missing,
 //this returns an empty string
 func (u *User) FullName() string {
-	//TODO: implement according to comment above
-
-	return ""
+	if len(u.FirstName) != 0 && len(u.LastName) == 0 {
+		return strings.Title(u.FirstName)
+	} else if len(u.FirstName) == 0 && len(u.LastName) != 0 {
+		return strings.Title(u.LastName)
+	} else if len(u.FirstName) != 0 && len(u.LastName) != 0 {
+		return strings.Title(u.FirstName) + " " + strings.Title(u.LastName)
+	} else {
+		return ""
+	}
 }
 
 //SetPassword hashes the password and stores it in the PassHash field
 func (u *User) SetPassword(password string) error {
-	//TODO: use the bcrypt package to generate a new hash of the password
-	//https://godoc.org/golang.org/x/crypto/bcrypt
-
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), 13)
+	if err != nil {
+		return err
+	}
+	u.PassHash = hash
 	return nil
 }
 
 //Authenticate compares the plaintext password against the stored hash
 //and returns an error if they don't match, or nil if they do
 func (u *User) Authenticate(password string) error {
-	//TODO: use the bcrypt package to compare the supplied
-	//password with the stored PassHash
-	//https://godoc.org/golang.org/x/crypto/bcrypt
-
+	if len(password) == 0 {
+		return fmt.Errorf("Given password is empty")
+	}
+	if err := bcrypt.CompareHashAndPassword(u.PassHash, []byte(password)); err != nil {
+		return fmt.Errorf("password doesn't match stored hash")
+	}
 	return nil
 }
 
 //ApplyUpdates applies the updates to the user. An error
 //is returned if the updates are invalid
 func (u *User) ApplyUpdates(updates *Updates) error {
-	//TODO: set the fields of `u` to the values of the related
-	//field in the `updates` struct
-
+	if len(updates.FirstName) != 0 {
+		u.FirstName = updates.FirstName
+	}
+	if len(updates.LastName) != 0 {
+		u.LastName = updates.LastName
+	}
 	return nil
 }
