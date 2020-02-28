@@ -25,12 +25,17 @@ func CustomDirector(targets []string, ctx *handlers.ContextHandler) Director {
 	var counter int32
 	counter = 0
 	return func(r *http.Request) {
-		sessionState := &handlers.SessionState{}
-		_, err := sessions.GetState(r, ctx.SigningKey, ctx.SessionStore, sessionState)
-		if err != nil {
-			user, err := json.Marshal(sessionState.User)
-			if err != nil {
-				r.Header.Add("X-user", string(user))
+		if ctx != nil {
+			sessionState := &handlers.SessionState{}
+			_, err := sessions.GetState(r, ctx.SigningKey, ctx.SessionStore, sessionState)
+			if err == nil {
+				log.Print("MARSHALLING")
+				user, err := json.Marshal(sessionState.User)
+				if err == nil {
+					log.Print("SHOULD ADD XUSER")
+					log.Print(string(user))
+					r.Header.Add("X-user", string(user))
+				}
 			}
 		}
 		targ := targets[rand.Int()%len(targets)]
@@ -39,6 +44,7 @@ func CustomDirector(targets []string, ctx *handlers.ContextHandler) Director {
 		r.Host = targ
 		r.URL.Host = targ
 		r.URL.Scheme = "http"
+		log.Print(r)
 	}
 }
 
@@ -82,15 +88,15 @@ func main() {
 	mux := http.NewServeMux()
 	var summaryAddrs []string
 	for _, port := range strings.Split(os.Getenv("SUMMARYADDR"), ",") {
-		addr := "http:localhost:" + port
+		addr := "summary:" + port
 		summaryAddrs = append(summaryAddrs, addr)
 	}
-	summaryProxy := &httputil.ReverseProxy{Director: CustomDirector(summaryAddrs, ctx)}
+	summaryProxy := &httputil.ReverseProxy{Director: CustomDirector(summaryAddrs, nil)}
 	mux.Handle("/v1/summary/", summaryProxy)
 
 	var messagesAddrs []string
 	for _, port := range strings.Split(os.Getenv("MESSAGESADDR"), ",") {
-		addr := "http:localhost:" + port
+		addr := "messages:" + port
 		messagesAddrs = append(messagesAddrs, addr)
 	}
 	messagesProxy := &httputil.ReverseProxy{Director: CustomDirector(messagesAddrs, ctx)}

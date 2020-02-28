@@ -1,15 +1,15 @@
 docker rm -f gateway
-docker rm -f redisDB
+# docker rm -f redisDB
 
 docker pull alexsthub/gateway
 
 
-docker run \
-  -d \
-  -p 6379:6379 \
-  --network api \
-  --name redisDB \
-  redis
+# docker run \
+#   -d \
+#   -p 6379:6379 \
+#   --network api \
+#   --name redisDB \
+#   redis
 
 docker run \
   -d \

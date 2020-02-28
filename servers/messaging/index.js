@@ -53,10 +53,8 @@ function isAuthenticated(req) {
 }
 
 // Returns the current authenticated user
-// TODO: I NEED TO PARSE THIS TWICE
 function getCurrentUser(req) {
   let user = req.header("X-user");
-  user = JSON.parse(user);
   user = JSON.parse(user);
   return user;
 }

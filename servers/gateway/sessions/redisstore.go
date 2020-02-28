@@ -58,7 +58,6 @@ func (rs *RedisStore) Get(sid SessionID, sessionState interface{}) error {
 	if err != nil {
 		return fmt.Errorf(err.Error())
 	}
-
 	rs.Client.Do("EXPIRE", sid.getRedisKey(), cache.DefaultExpiration)
 	return nil
 }
