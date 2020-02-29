@@ -29,11 +29,8 @@ func CustomDirector(targets []string, ctx *handlers.ContextHandler) Director {
 			sessionState := &handlers.SessionState{}
 			_, err := sessions.GetState(r, ctx.SigningKey, ctx.SessionStore, sessionState)
 			if err == nil {
-				log.Print("MARSHALLING")
 				user, err := json.Marshal(sessionState.User)
 				if err == nil {
-					log.Print("SHOULD ADD XUSER")
-					log.Print(string(user))
 					r.Header.Add("X-user", string(user))
 				}
 			}
@@ -76,6 +73,7 @@ func main() {
 		SigningKey:   signingKey,
 		SessionStore: sessionStore,
 		UserStore:    userStore,
+		Notifier:     handlers.NewNotifier(),
 	}
 
 	// Load users into trie
@@ -107,6 +105,8 @@ func main() {
 	mux.HandleFunc("/v1/users/", ctx.SpecificUsersHandler)
 	mux.HandleFunc("/v1/sessions", ctx.SessionsHandler)
 	mux.HandleFunc("/v1/sessions/", ctx.SpecificSessionsHandler)
+
+	mux.HandleFunc("/ws", ctx.WebSocketConnectionHandler)
 
 	wrappedMuxed := &handlers.CorsMW{Handler: mux}
 

@@ -14,4 +14,5 @@ type ContextHandler struct {
 	SessionStore *sessions.RedisStore
 	UserStore    *users.MySQLStore
 	UserTrie     *indexes.Trie
+	Notifier     *Notifier
 }
