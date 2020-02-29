@@ -43,6 +43,15 @@ MongoClient.connect(conn_url, function(err, client) {
   }
 });
 
+// Connect to RabbitMQ
+var amqp = require("amqplib/callback_api");
+amqp.connect("amqp://localhost", function(error, connection) {
+  if (error) throw error;
+  connection.createChannel(function(error, channel) {
+    if (error) throw error;
+  });
+});
+
 // Return true is used is authenticated, false otherwise
 function isAuthenticated(req) {
   const authenticated = req.header("X-user");
@@ -166,10 +175,17 @@ app.post("/v1/channels", (req, res, next) => {
         res.send("Channel name already exists");
         return;
       } else {
-        res.status(201);
-        res.set("Content-Type", "application/json");
-        res.json(newChannel);
-        return;
+        // res.status(201);
+        // res.set("Content-Type", "application/json");
+        // res.json(newChannel);
+        // return;
+        // TODO: Send to queue
+        const message = {
+          type: "channel-new",
+          channel: newChannel,
+          userIDs: newChannel.private ? newChannel.members.map(m => m.id) : null
+        };
+        const m = JSON.stringify(message);
       }
     });
 });
@@ -251,9 +267,20 @@ app.post("/v1/channels/:channelID", async (req, res, next) => {
         res.send("Error adding message to channel");
         return;
       } else {
-        res.status(201);
-        res.set("Content-Type", "application/json");
-        res.json(newMessage);
+        // res.status(201);
+        // res.set("Content-Type", "application/json");
+        // res.json(newMessage);
+        // TODO: Send to queue
+        dbClient
+          .collection("channels")
+          .findOne({ _id: new ObjectId(channelID) }, function(err, response) {
+            const message = {
+              type: "message-new",
+              channel: newMessage,
+              userIDs: result.private ? result.members.map(m => m.id) : null
+            };
+            const m = JSON.stringify(message);
+          });
       }
     });
 });
@@ -292,9 +319,18 @@ app.patch("/v1/channels/:channelID", async (req, res, next) => {
           res.send("Error editting channel");
           return;
         } else {
-          res.set("Content-Type", "application/json");
-          res.json(response.value);
-          return;
+          // res.set("Content-Type", "application/json");
+          // res.json(response.value);
+          // return;
+          // TODO: Send to queue
+          const message = {
+            type: "channel-update",
+            channel: response.value,
+            userIDs: response.value.private
+              ? response.value.members.map(m => m.id)
+              : null
+          };
+          const m = JSON.stringify(message);
         }
       }
     );
@@ -317,6 +353,10 @@ app.delete("/v1/channels/:channelID", async (req, res, next) => {
     return;
   }
 
+  const channel = await dbClient
+    .collection("channels")
+    .findOne({ _id: new ObjectId(channelID) });
+
   dbClient
     .collection("channels")
     .deleteOne({ _id: new ObjectId(channelID) }, function(err) {
@@ -336,8 +376,15 @@ app.delete("/v1/channels/:channelID", async (req, res, next) => {
         return;
       }
     });
-  res.send("Channel successfully deleted");
-  return;
+  // res.send("Channel successfully deleted");
+  // return;
+  // TODO: Send to queue
+  const message = {
+    type: "channel-delete",
+    channelID: channelID,
+    userIDs: channel.private ? channel.members.map(m => m.id) : null
+  };
+  const m = JSON.stringify(message);
 });
 
 // Add a user to a channel
@@ -453,9 +500,23 @@ app.patch("/v1/messages/:messageID", async (req, res, next) => {
           res.send("");
           return;
         } else {
-          res.set("Content-Type", "application/json");
-          res.json(result.value);
-          return;
+          // res.set("Content-Type", "application/json");
+          // res.json(result.value);
+          // return;
+          // TODO: Send to queue
+          dbClient
+            .collection("channels")
+            .findOne({ _id: new ObjectId(result.value.channelID) }, function(
+              err,
+              result
+            ) {
+              const message = {
+                type: "message-update",
+                channel: result.value,
+                userIDs: result.private ? result.members.map(m => m.id) : null
+              };
+              const m = JSON.stringify(message);
+            });
         }
       }
     );
@@ -480,6 +541,14 @@ app.delete("/v1/messages/:messageID", async (req, res, next) => {
     return;
   }
 
+  const message = await dbClient
+    .collection("messages")
+    .findOne({ _id: new ObjectId(result.value.messageID) });
+
+  const channel = await dbClient
+    .collection("channels")
+    .findOne({ _id: new ObjectId(message.channelID) });
+
   dbClient
     .collection("messages")
     .deleteOne({ _id: new ObjectId(messageID) }, function(err) {
@@ -488,8 +557,15 @@ app.delete("/v1/messages/:messageID", async (req, res, next) => {
         res.send("Error deleting message");
         return;
       } else {
-        res.send("Message successfully deleted");
-        return;
+        // res.send("Message successfully deleted");
+        // return;
+        // TODO: Send to queue.
+        const message = {
+          type: "message-delete",
+          messageID: messageID,
+          userIDs: channel.private ? channel.members.map(m => m.id) : null
+        };
+        const m = JSON.stringify(message);
       }
     });
 });
