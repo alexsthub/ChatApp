@@ -12,45 +12,49 @@ app.use(morgan("dev"));
 const addr = process.env.ADDR || ":6000";
 const [host, port] = addr.split(":");
 
-const conn_url = "mongodb://mongoMessages:27017/messages";
-let dbClient;
-MongoClient.connect(conn_url, function(err, client) {
-  if (!err) {
-    console.log("Successfully connected to db");
-    dbClient = client.db("messages");
-    dbClient.collection("channels").createIndex({ name: 1 }, { unique: true });
-    const generalChannel = {
-      name: "General",
-      description: "Channel for general chatter",
-      private: false,
-      members: [],
-      createdAt: Date.now(),
-      creator: null,
-      editedAt: null
-    };
-    dbClient
-      .collection("channels")
-      .updateOne(
-        { name: "General" },
-        { $set: generalChannel },
-        { upsert: true },
-        function(err) {
-          if (err) throw err;
-        }
-      );
-  } else {
-    throw err;
-  }
-});
+// const conn_url = "mongodb://mongoMessages:27017/messages";
+// let dbClient;
+// MongoClient.connect(conn_url, function(err, client) {
+//   if (!err) {
+//     console.log("Successfully connected to db");
+//     dbClient = client.db("messages");
+//     dbClient.collection("channels").createIndex({ name: 1 }, { unique: true });
+//     const generalChannel = {
+//       name: "General",
+//       description: "Channel for general chatter",
+//       private: false,
+//       members: [],
+//       createdAt: Date.now(),
+//       creator: null,
+//       editedAt: null
+//     };
+//     dbClient
+//       .collection("channels")
+//       .updateOne(
+//         { name: "General" },
+//         { $set: generalChannel },
+//         { upsert: true },
+//         function(err) {
+//           if (err) throw err;
+//         }
+//       );
+//   } else {
+//     throw err;
+//   }
+// });
 
 // Connect to RabbitMQ
 var amqp = require("amqplib/callback_api");
+let rabbitChannel;
 amqp.connect("amqp://localhost", function(error, connection) {
   if (error) throw error;
   connection.createChannel(function(error, channel) {
     if (error) throw error;
+    rabbitChannel = channel;
   });
 });
+
+console.log(rabbitChannel);
 
 // Return true is used is authenticated, false otherwise
 function isAuthenticated(req) {
@@ -68,35 +72,18 @@ function getCurrentUser(req) {
   return user;
 }
 
-async function canAccessChannel(currentUser, channelID) {
+async function getChannel(channelID) {
   let res = await dbClient
     .collection("channels")
     .findOne({ _id: new ObjectId(channelID) });
-  if (!res) {
-    return false;
-  }
-  if (res.private) {
-    if (!res.members.some(m => m.id === currentUser.id)) {
-      return false;
-    }
-  }
-  return true;
+  return res;
 }
 
-// Returns true if the current user is the creator of a channel, false otherwise
-async function isChannelCreator(currentUser, channelID) {
+async function getMessage(messageID) {
   let res = await dbClient
-    .collection("channels")
-    .findOne({ _id: new ObjectId(channelID) });
-  const creator = res.creator;
-  if (!creator) {
-    return false;
-  }
-  if (currentUser.id === creator.id) {
-    return true;
-  } else {
-    return false;
-  }
+    .collection("messages")
+    .findOne({ _id: new ObjectId(messageID) });
+  return res;
 }
 
 // Returns true if the current user is the creator of a message, false otherwise
@@ -200,8 +187,11 @@ app.get("/v1/channels/:channelID", async (req, res, next) => {
   const currentUser = getCurrentUser(req);
   const channelID = req.params.channelID;
   // Check if channel is private and if current user is a member
-  const access = await canAccessChannel(currentUser, channelID);
-  if (!access) {
+  const channel = await getChannel(channelID);
+  if (
+    !channel ||
+    (channel.private && !channel.members.some(m => m.id === currentUser.id))
+  ) {
     res.status(403);
     res.send("Cannot access channel");
     return;
@@ -246,8 +236,11 @@ app.post("/v1/channels/:channelID", async (req, res, next) => {
   const currentUser = getCurrentUser(req);
   const channelID = req.params.channelID;
 
-  const access = await canAccessChannel(currentUser, channelID);
-  if (!access) {
+  const channel = await getChannel(channelID);
+  if (
+    !channel ||
+    (channel.private && !channel.members.some(m => m.id === currentUser.id))
+  ) {
     res.status(403);
     res.send("Cannot access channel");
     return;
@@ -295,8 +288,11 @@ app.patch("/v1/channels/:channelID", async (req, res, next) => {
   const currentUser = getCurrentUser(req);
   const channelID = req.params.channelID;
 
-  const access = await canAccessChannel(currentUser, channelID);
-  if (!access) {
+  const channel = await getChannel(channelID);
+  if (
+    !channel ||
+    (channel.private && !channel.members.some(m => m.id === currentUser.id))
+  ) {
     res.status(403);
     res.send("Cannot access channel");
     return;
@@ -346,16 +342,13 @@ app.delete("/v1/channels/:channelID", async (req, res, next) => {
   const currentUser = getCurrentUser(req);
   const channelID = req.params.channelID;
 
-  const access = await isChannelCreator(currentUser, channelID);
-  if (access === false) {
+  const channel = await getChannel(channelID);
+  const creator = channel.creator;
+  if (!creator || currentUser.id !== creator.id) {
     res.status(403);
     res.send("User is not the creator of the channel");
     return;
   }
-
-  const channel = await dbClient
-    .collection("channels")
-    .findOne({ _id: new ObjectId(channelID) });
 
   dbClient
     .collection("channels")
@@ -403,8 +396,9 @@ app.post(`/v1/channels/:channelID/members`, async (req, res, next) => {
     return;
   }
 
-  const access = await isChannelCreator(currentUser, channelID);
-  if (access === false) {
+  const channel = await getChannel(channelID);
+  const creator = channel.creator;
+  if (!creator || currentUser.id !== creator.id) {
     res.status(403);
     res.send("User is not the creator of the channel");
     return;
@@ -445,8 +439,9 @@ app.delete(`/v1/channels/:channelID/members`, async (req, res, next) => {
     return;
   }
 
-  const access = await isChannelCreator(currentUser, channelID);
-  if (access === false) {
+  const channel = await getChannel(channelID);
+  const creator = channel.creator;
+  if (!creator || currentUser.id !== creator.id) {
     res.status(403);
     res.send("User is not the creator of the channel");
     return;
@@ -531,23 +526,16 @@ app.delete("/v1/messages/:messageID", async (req, res, next) => {
     res.send("User is not authenticated");
     return;
   }
-  const user = getCurrentUser(req);
+  const currentUser = getCurrentUser(req);
   const messageID = req.params.messageID;
 
-  const access = await isMessageCreator(user, messageID);
-  if (!access) {
+  const message = await getMessage(messageID);
+  if (message.creator.id != currentUser.id) {
     res.status(403);
     res.send("User is not the creator of the message");
     return;
   }
-
-  const message = await dbClient
-    .collection("messages")
-    .findOne({ _id: new ObjectId(result.value.messageID) });
-
-  const channel = await dbClient
-    .collection("channels")
-    .findOne({ _id: new ObjectId(message.channelID) });
+  const channel = await getChannel(message.channelID);
 
   dbClient
     .collection("messages")
