@@ -43,17 +43,19 @@ MongoClient.connect(conn_url, function(err, client) {
   }
 });
 
+var amqp = require("amqplib/callback_api");
+let rabbitMQChannel;
+const queueName = "message";
 // Connect to RabbitMQ
-// var amqp = require("amqplib/callback_api");
-// let rabbitChannel;
-// amqp.connect("amqp://localhost", function(error, connection) {
-//   if (error) throw error;
-//   rabbitChannel = connection;
-//   connection.createChannel(function(error, channel) {
-//     if (error) throw error;
-//     rabbitChannel = channel;
-//   });
-// });
+var amqp = require("amqplib/callback_api");
+amqp.connect("amqp://localhost", function(error, connection) {
+  if (error) throw error;
+  rabbitChannel = connection;
+  connection.createChannel(function(error, channel) {
+    if (error) throw error;
+    rabbitMQChannel = channel;
+  });
+});
 
 // Return true is used is authenticated, false otherwise
 function isAuthenticated(req) {
@@ -166,11 +168,12 @@ app.post("/v1/channels", (req, res, next) => {
         res.json(newChannel);
         // TODO: Send to queue
         const message = {
-          type: "channel-new",
+          messageType: "channel-new",
           channel: newChannel,
           userIDs: newChannel.private ? newChannel.members.map(m => m.id) : null
         };
         const m = JSON.stringify(message);
+        rabbitMQChannel.sendToQueue(queueName, Buffer.from(m));
       }
     });
 });
@@ -260,18 +263,15 @@ app.post("/v1/channels/:channelID", async (req, res, next) => {
       } else {
         res.status(201);
         res.set("Content-Type", "application/json");
-        res.json(newMessage);
+        res.json(response);
         // TODO: Send to queue
-        dbClient
-          .collection("channels")
-          .findOne({ _id: new ObjectId(channelID) }, function(err, response) {
-            const message = {
-              type: "message-new",
-              channel: newMessage,
-              userIDs: result.private ? result.members.map(m => m.id) : null
-            };
-            const m = JSON.stringify(message);
-          });
+        const message = {
+          messageType: "message-new",
+          channel: response,
+          userIDs: channel.private ? channel.members.map(m => m.id) : null
+        };
+        const m = JSON.stringify(message);
+        rabbitMQChannel.sendToQueue(queueName, Buffer.from(m));
       }
     });
 });
@@ -317,13 +317,14 @@ app.patch("/v1/channels/:channelID", async (req, res, next) => {
           res.json(response.value);
           // TODO: Send to queue
           const message = {
-            type: "channel-update",
+            messageType: "channel-update",
             channel: response.value,
             userIDs: response.value.private
               ? response.value.members.map(m => m.id)
               : null
           };
           const m = JSON.stringify(message);
+          rabbitMQChannel.sendToQueue(queueName, Buffer.from(m));
         }
       }
     );
@@ -369,11 +370,12 @@ app.delete("/v1/channels/:channelID", async (req, res, next) => {
   res.send("Channel successfully deleted");
   // TODO: Send to queue
   const message = {
-    type: "channel-delete",
+    messageType: "channel-delete",
     channelID: channelID,
     userIDs: channel.private ? channel.members.map(m => m.id) : null
   };
   const m = JSON.stringify(message);
+  rabbitMQChannel.sendToQueue(queueName, Buffer.from(m));
 });
 
 // Add a user to a channel
@@ -501,11 +503,12 @@ app.patch("/v1/messages/:messageID", async (req, res, next) => {
               result
             ) {
               const message = {
-                type: "message-update",
+                messageType: "message-update",
                 channel: result.value,
                 userIDs: result.private ? result.members.map(m => m.id) : null
               };
               const m = JSON.stringify(message);
+              rabbitMQChannel.sendToQueue(queueName, Buffer.from(m));
             });
         }
       }
@@ -543,11 +546,12 @@ app.delete("/v1/messages/:messageID", async (req, res, next) => {
         res.send("Message successfully deleted");
         // TODO: Send to queue.
         const message = {
-          type: "message-delete",
+          messageType: "message-delete",
           messageID: messageID,
           userIDs: channel.private ? channel.members.map(m => m.id) : null
         };
         const m = JSON.stringify(message);
+        rabbitMQChannel.sendToQueue(queueName, Buffer.from(m));
       }
     });
 });

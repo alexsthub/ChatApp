@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync"
@@ -48,11 +49,6 @@ func (notifier *Notifier) removeConnection(userID int64) {
 }
 
 // WebSocketConnectionHandler upgrade the connection to a web socket connection if the user is authenticated
-// TODO: add a handler that upgrades clients to a WebSocket connection
-//and adds that to a list of WebSockets to notify when events are
-//read from the RabbitMQ server. Remember to synchronize changes
-//to this list, as handlers are called concurrently from multiple
-//goroutines.
 func (ctx *ContextHandler) WebSocketConnectionHandler(w http.ResponseWriter, r *http.Request) {
 	// Check if user is authenticated
 	sessionState := &SessionState{}
@@ -78,7 +74,29 @@ func (ctx *ContextHandler) WebSocketConnectionHandler(w http.ResponseWriter, r *
 		return
 	}
 	// Save connection
+	go transferMessages(conn)
 	ctx.Notifier.addConnection(sessionState.User.ID, conn)
+
+}
+
+func transferMessages(conn *websocket.Conn) {
+	for {
+		// TODO WHAT THE FUCK
+		m := struct{ fuck string }{fuck: "FUCK"}
+
+		err := conn.ReadJSON(&m)
+		if err != nil {
+			fmt.Println("Error reading json.", err)
+			conn.Close()
+			break
+		}
+
+		fmt.Printf("Got message: %#v\n", m)
+
+		if err = conn.WriteJSON(m); err != nil {
+			fmt.Println(err)
+		}
+	}
 
 }
 
@@ -93,8 +111,12 @@ func (ctx *ContextHandler) WebSocketConnectionHandler(w http.ResponseWriter, r *
 //Gorilla WebSocket API documentation:
 //http://godoc.org/github.com/gorilla/websocket
 
+type rabbitMsg struct {
+	userIDs []int64
+}
+
 // RabbitMQConn shit
-func RabbitMQConn() {
+func (ctx *ContextHandler) RabbitMQConn() {
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	if err != nil {
 		fmt.Print("Failed to connecto rabbitMQ")
@@ -105,25 +127,56 @@ func RabbitMQConn() {
 	}
 
 	q, err := ch.QueueDeclare(
-		"hello", // name
-		true,    // durable
-		false,   // delete when unused
-		false,   // exclusive
-		false,   // no-wait
-		nil,     // arguments
+		"message", // name
+		true,      // durable
+		false,     // delete when unused
+		false,     // exclusive
+		false,     // no-wait
+		nil,       // arguments
 	)
 	if err != nil {
 		fmt.Print("Failed to declare a queue")
 	}
 
-	body := "Hello World!"
-	err = ch.Publish(
-		"",     // exchange
-		q.Name, // routing key
-		false,  // mandatory
-		false,  // immediate
-		amqp.Publishing{
-			ContentType: "application/json",
-			Body:        []byte(body),
-		})
+	msgs, err := ch.Consume(
+		q.Name, // queue
+		"",     // consumer
+		true,   // auto-ack
+		false,  // exclusive
+		false,  // no-local
+		false,  // no-wait
+		nil,    // args
+	)
+
+	for msg := range msgs {
+		message := &rabbitMsg{}
+		err := json.Unmarshal([]byte(msg.Body), message)
+		if err != nil {
+			fmt.Println(err)
+		}
+		if len(message.userIDs) > 0 {
+			// If private
+			for _, id := range message.userIDs {
+				socket := ctx.Notifier.getConnection(id)
+				socket.WriteMessage(websocket.CloseMessage, msg.Body)
+				if err != nil {
+					// TODO: Close socket
+					socket.Close()
+					ctx.Notifier.removeConnection(id)
+				}
+			}
+		} else {
+			// Public
+			for id, socket := range ctx.Notifier.connections {
+				// TODO: What the fuck is closemessage
+				err := socket.WriteMessage(websocket.CloseMessage, msg.Body)
+				if err != nil {
+					// TODO: Close socket
+					socket.Close()
+					ctx.Notifier.removeConnection(id)
+				}
+			}
+
+		}
+	}
 }

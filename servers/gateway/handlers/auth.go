@@ -274,6 +274,13 @@ func (ctx *ContextHandler) SpecificSessionsHandler(w http.ResponseWriter, r *htt
 			http.Error(w, err.Error(), 500)
 			return
 		}
+
+		sessionState := &SessionState{}
+		_, err = sessions.GetState(r, ctx.SigningKey, ctx.SessionStore, sessionState)
+		// Remove websocket connection
+		conn := ctx.Notifier.getConnection(sessionState.User.ID)
+		conn.Close()
+		ctx.Notifier.removeConnection(sessionState.User.ID)
 		w.Write([]byte("Signed Out"))
 		return
 	default:
