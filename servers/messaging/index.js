@@ -12,49 +12,48 @@ app.use(morgan("dev"));
 const addr = process.env.ADDR || ":6000";
 const [host, port] = addr.split(":");
 
-// const conn_url = "mongodb://mongoMessages:27017/messages";
-// let dbClient;
-// MongoClient.connect(conn_url, function(err, client) {
-//   if (!err) {
-//     console.log("Successfully connected to db");
-//     dbClient = client.db("messages");
-//     dbClient.collection("channels").createIndex({ name: 1 }, { unique: true });
-//     const generalChannel = {
-//       name: "General",
-//       description: "Channel for general chatter",
-//       private: false,
-//       members: [],
-//       createdAt: Date.now(),
-//       creator: null,
-//       editedAt: null
-//     };
-//     dbClient
-//       .collection("channels")
-//       .updateOne(
-//         { name: "General" },
-//         { $set: generalChannel },
-//         { upsert: true },
-//         function(err) {
-//           if (err) throw err;
-//         }
-//       );
-//   } else {
-//     throw err;
-//   }
-// });
-
-// Connect to RabbitMQ
-var amqp = require("amqplib/callback_api");
-let rabbitChannel;
-amqp.connect("amqp://localhost", function(error, connection) {
-  if (error) throw error;
-  connection.createChannel(function(error, channel) {
-    if (error) throw error;
-    rabbitChannel = channel;
-  });
+const conn_url = "mongodb://localhost:27017/messages";
+let dbClient;
+MongoClient.connect(conn_url, function(err, client) {
+  if (!err) {
+    console.log("Successfully connected to db");
+    dbClient = client.db("messages");
+    dbClient.collection("channels").createIndex({ name: 1 }, { unique: true });
+    const generalChannel = {
+      name: "General",
+      description: "Channel for general chatter",
+      private: false,
+      members: [],
+      createdAt: Date.now(),
+      creator: null,
+      editedAt: null
+    };
+    dbClient
+      .collection("channels")
+      .updateOne(
+        { name: "General" },
+        { $set: generalChannel },
+        { upsert: true },
+        function(err) {
+          if (err) throw err;
+        }
+      );
+  } else {
+    throw err;
+  }
 });
 
-console.log(rabbitChannel);
+// Connect to RabbitMQ
+// var amqp = require("amqplib/callback_api");
+// let rabbitChannel;
+// amqp.connect("amqp://localhost", function(error, connection) {
+//   if (error) throw error;
+//   rabbitChannel = connection;
+//   connection.createChannel(function(error, channel) {
+//     if (error) throw error;
+//     rabbitChannel = channel;
+//   });
+// });
 
 // Return true is used is authenticated, false otherwise
 function isAuthenticated(req) {
@@ -162,10 +161,9 @@ app.post("/v1/channels", (req, res, next) => {
         res.send("Channel name already exists");
         return;
       } else {
-        // res.status(201);
-        // res.set("Content-Type", "application/json");
-        // res.json(newChannel);
-        // return;
+        res.status(201);
+        res.set("Content-Type", "application/json");
+        res.json(newChannel);
         // TODO: Send to queue
         const message = {
           type: "channel-new",
@@ -190,7 +188,7 @@ app.get("/v1/channels/:channelID", async (req, res, next) => {
   const channel = await getChannel(channelID);
   if (
     !channel ||
-    (channel.private && !channel.members.some(m => m.id === currentUser.id))
+    (channel.private && !channel.members.some(m => m.id !== currentUser.id))
   ) {
     res.status(403);
     res.send("Cannot access channel");
@@ -239,7 +237,7 @@ app.post("/v1/channels/:channelID", async (req, res, next) => {
   const channel = await getChannel(channelID);
   if (
     !channel ||
-    (channel.private && !channel.members.some(m => m.id === currentUser.id))
+    (channel.private && !channel.members.some(m => m.id !== currentUser.id))
   ) {
     res.status(403);
     res.send("Cannot access channel");
@@ -260,9 +258,9 @@ app.post("/v1/channels/:channelID", async (req, res, next) => {
         res.send("Error adding message to channel");
         return;
       } else {
-        // res.status(201);
-        // res.set("Content-Type", "application/json");
-        // res.json(newMessage);
+        res.status(201);
+        res.set("Content-Type", "application/json");
+        res.json(newMessage);
         // TODO: Send to queue
         dbClient
           .collection("channels")
@@ -291,7 +289,7 @@ app.patch("/v1/channels/:channelID", async (req, res, next) => {
   const channel = await getChannel(channelID);
   if (
     !channel ||
-    (channel.private && !channel.members.some(m => m.id === currentUser.id))
+    (channel.private && !channel.members.some(m => m.id !== currentUser.id))
   ) {
     res.status(403);
     res.send("Cannot access channel");
@@ -315,9 +313,8 @@ app.patch("/v1/channels/:channelID", async (req, res, next) => {
           res.send("Error editting channel");
           return;
         } else {
-          // res.set("Content-Type", "application/json");
-          // res.json(response.value);
-          // return;
+          res.set("Content-Type", "application/json");
+          res.json(response.value);
           // TODO: Send to queue
           const message = {
             type: "channel-update",
@@ -369,8 +366,7 @@ app.delete("/v1/channels/:channelID", async (req, res, next) => {
         return;
       }
     });
-  // res.send("Channel successfully deleted");
-  // return;
+  res.send("Channel successfully deleted");
   // TODO: Send to queue
   const message = {
     type: "channel-delete",
@@ -495,9 +491,8 @@ app.patch("/v1/messages/:messageID", async (req, res, next) => {
           res.send("");
           return;
         } else {
-          // res.set("Content-Type", "application/json");
-          // res.json(result.value);
-          // return;
+          res.set("Content-Type", "application/json");
+          res.json(result.value);
           // TODO: Send to queue
           dbClient
             .collection("channels")
@@ -545,8 +540,7 @@ app.delete("/v1/messages/:messageID", async (req, res, next) => {
         res.send("Error deleting message");
         return;
       } else {
-        // res.send("Message successfully deleted");
-        // return;
+        res.send("Message successfully deleted");
         // TODO: Send to queue.
         const message = {
           type: "message-delete",
