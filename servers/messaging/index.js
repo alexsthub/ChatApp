@@ -151,7 +151,7 @@ app.post("/v1/channels", (req, res, next) => {
     newChannel.members = [currentUser];
   } else {
     newChannel.private = false;
-    newChannel.members = [currentUser];
+    newChannel.members = [];
   }
   newChannel.createdAt = Date.now();
   newChannel.creator = currentUser;

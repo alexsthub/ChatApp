@@ -1,15 +1,21 @@
 import React from "react";
 import "./App.css";
 import UserSearch from "./UserSearch";
+import CreateChannel from "./CreateChannel";
+import UpdateForm from "./UpdateForm";
+import SignUpForm from "./SignUpForm";
 
 export default class App extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
       user: null,
-      content: "home"
+      content: "home",
+      channels: []
     };
   }
+
+  componentDidMount() {}
 
   handleSignIn = (email, password) => {
     fetch("https://api.alexst.me/v1/sessions", {
@@ -35,9 +41,33 @@ export default class App extends React.Component {
       })
       .then(user => {
         this.setState({ user: user });
+        this.getChannels();
       })
       .catch(err => {
         alert(err);
+        return;
+      });
+  };
+
+  getChannels = () => {
+    fetch("https://api.alexst.me/v1/channels", {
+      method: "GET",
+      headers: {
+        Authorization: localStorage.getItem("Auth")
+      }
+    })
+      .then(response => {
+        return response.json();
+      })
+      .catch(err => {
+        alert(err);
+        return;
+      })
+      .then(channels => {
+        console.log(channels);
+        this.setState({ channels: channels });
+      })
+      .catch(err => {
         return;
       });
   };
@@ -130,6 +160,7 @@ export default class App extends React.Component {
 
   render() {
     let content = null;
+    let channels = null;
     switch (this.state.content) {
       case "update":
         content = (
@@ -144,6 +175,14 @@ export default class App extends React.Component {
       case "search":
         content = (
           <UserSearch cancelSearch={() => this.setState({ content: "home" })} />
+        );
+        break;
+      case "createChannel":
+        content = (
+          <CreateChannel
+            user={this.state.user}
+            cancel={() => this.setState({ content: "home" })}
+          />
         );
         break;
       default:
@@ -170,6 +209,26 @@ export default class App extends React.Component {
             </button>
           </div>
         );
+        channels = (
+          <div style={{ marginTop: 40 }}>
+            <p>These are the available channels</p>
+            <div onClick={() => this.setState({ content: "createChannel" })}>
+              <p style={{ fontWeight: "bold" }}>Create a channel +</p>
+            </div>
+            {this.state.channels.map((ch, i) => {
+              return (
+                <div key={i}>
+                  <a
+                    style={{ color: "blue" }}
+                    onClick={() => console.log("FUCK")}
+                  >
+                    {ch.name}
+                  </a>
+                </div>
+              );
+            })}
+          </div>
+        );
     }
     return (
       <div className="App">
@@ -189,239 +248,11 @@ export default class App extends React.Component {
             </p>
 
             {content}
+
+            {channels}
           </div>
         )}
       </div>
-    );
-  }
-}
-
-class UpdateForm extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { firstNameChange: "", lastNameChange: "" };
-  }
-
-  handleChange = event => {
-    let field = event.target.name;
-    let value = event.target.value;
-
-    let changes = {};
-    changes[field] = value;
-    this.setState(changes);
-  };
-
-  handleUpdate = event => {
-    event.preventDefault();
-    this.props.handleUpdate(
-      this.state.firstNameChange,
-      this.state.lastNameChange
-    );
-  };
-
-  cancelUpdate = event => {
-    event.preventDefault();
-    this.props.cancelUpdate();
-  };
-
-  render() {
-    return (
-      <div>
-        <p>User Updates:</p>
-        <div className="form-group">
-          <label htmlFor="firstNameChange">First Name</label>
-          <input
-            className="form-control"
-            id="firstNameChange"
-            name="firstNameChange"
-            onChange={this.handleChange}
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="lastNameChange">First Name</label>
-          <input
-            className="form-control"
-            id="lastNameChange"
-            name="lastNameChange"
-            onChange={this.handleChange}
-          />
-        </div>
-
-        <div className="form-group">
-          <button className="btn btn-primary mr-2" onClick={this.handleUpdate}>
-            Save Updates
-          </button>
-          <button className="btn btn-primary mr-2" onClick={this.cancelUpdate}>
-            Cancel
-          </button>
-        </div>
-      </div>
-    );
-  }
-}
-
-class SignUpForm extends React.Component {
-  constructor(props) {
-    super(props);
-
-    this.state = {
-      signIn: false,
-      firstname: "",
-      lastname: "",
-      email: "",
-      password: "",
-      passwordConf: "",
-      username: ""
-    };
-  }
-
-  //update state for specific field
-  handleChange = event => {
-    let field = event.target.name;
-    let value = event.target.value;
-
-    let changes = {};
-    changes[field] = value;
-    this.setState(changes);
-  };
-
-  //handle signUp button
-  handleSignUp = event => {
-    event.preventDefault();
-    this.props.handleSignUp(
-      this.state.firstname,
-      this.state.lastname,
-      this.state.email,
-      this.state.password,
-      this.state.passwordConf,
-      this.state.username
-    );
-  };
-
-  //handle signIn button
-  handleSignIn = event => {
-    event.preventDefault();
-    this.props.handleSignIn(this.state.email, this.state.password);
-  };
-
-  changeSignIn = event => {
-    event.preventDefault();
-    this.setState({ signIn: !this.state.signIn });
-  };
-
-  render() {
-    return (
-      <form>
-        {this.state.signIn ? (
-          <div className="form-group">
-            <label htmlFor="firstname">First Name</label>
-            <input
-              className="form-control"
-              id="firstname"
-              name="firstname"
-              value={this.state.firstname}
-              onChange={this.handleChange}
-            />
-          </div>
-        ) : null}
-
-        {this.state.signIn ? (
-          <div className="form-group">
-            <label htmlFor="lastname">Last Name</label>
-            <input
-              className="form-control"
-              id="lastname"
-              name="lastname"
-              value={this.state.lastname}
-              onChange={this.handleChange}
-            />
-          </div>
-        ) : null}
-
-        <div className="form-group">
-          <label htmlFor="email">Email</label>
-          <input
-            className="form-control"
-            id="email"
-            type="email"
-            name="email"
-            value={this.state.email}
-            onChange={this.handleChange}
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="password">Password</label>
-          <input
-            className="form-control"
-            id="password"
-            type="password"
-            name="password"
-            value={this.state.password}
-            onChange={this.handleChange}
-          />
-        </div>
-
-        {this.state.signIn ? (
-          <div className="form-group">
-            <label htmlFor="passwordConf">Confirm Password</label>
-            <input
-              className="form-control"
-              id="passwordConf"
-              type="password"
-              name="passwordConf"
-              value={this.state.passwordConf}
-              onChange={this.handleChange}
-            />
-          </div>
-        ) : null}
-
-        {this.state.signIn ? (
-          <div className="form-group">
-            <label htmlFor="username">Username</label>
-            <input
-              className="form-control"
-              id="username"
-              name="username"
-              value={this.state.username}
-              onChange={this.handleChange}
-            />
-          </div>
-        ) : null}
-
-        {this.state.signIn ? (
-          <div className="form-group">
-            <button
-              className="btn btn-primary mr-2"
-              onClick={this.handleSignUp}
-            >
-              SignUp
-            </button>
-            <button
-              className="btn btn-primary mr-2"
-              onClick={this.changeSignIn}
-            >
-              Back to Signin
-            </button>
-          </div>
-        ) : (
-          <div className="form-group">
-            <button
-              className="btn btn-primary mr-2"
-              onClick={this.handleSignIn}
-            >
-              Login
-            </button>
-            <button
-              className="btn btn-primary mr-2"
-              onClick={this.changeSignIn}
-            >
-              SignUp
-            </button>
-          </div>
-        )}
-      </form>
     );
   }
 }

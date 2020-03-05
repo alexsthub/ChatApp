@@ -26,6 +26,7 @@ export default class AutocompleteProfile extends React.Component {
           {this.toTitle(this.props.user.firstName)}{" "}
         </p>
         <p>{this.toTitle(this.props.user.lastName)}</p>
+        <p> - {this.props.user.id}</p>
       </div>
     );
   }

@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os/user"
 	"sync"
+	"time"
 
 	"github.com/UW-Info-441-Winter-Quarter-2020/homework-alexsthub/servers/gateway/sessions"
 	"github.com/gorilla/websocket"
@@ -73,31 +75,36 @@ func (ctx *ContextHandler) WebSocketConnectionHandler(w http.ResponseWriter, r *
 		http.Error(w, "failed to open websocket connection", 401)
 		return
 	}
-	// Save connection
-	go transferMessages(conn)
 	ctx.Notifier.addConnection(sessionState.User.ID, conn)
-
 }
 
-func transferMessages(conn *websocket.Conn) {
-	for {
-		// TODO WHAT THE FUCK
-		m := struct{ fuck string }{fuck: "FUCK"}
+type channel struct {
+	_id         string
+	name        string
+	description string
+	private     bool
+	members     []*user.User
+	createdAt   time.Time
+	creator     *user.User
+	editedAt    time.Time
+}
 
-		err := conn.ReadJSON(&m)
-		if err != nil {
-			fmt.Println("Error reading json.", err)
-			conn.Close()
-			break
-		}
+type message struct {
+	_id       string
+	channelID string
+	body      string
+	createdAt time.Time
+	creator   *user.User
+	editedAt  time.Time
+}
 
-		fmt.Printf("Got message: %#v\n", m)
-
-		if err = conn.WriteJSON(m); err != nil {
-			fmt.Println(err)
-		}
-	}
-
+type messageObj struct {
+	messageType string
+	channel     *channel
+	channelID   string
+	message     *message
+	messageID   string
+	userIDs     []int64
 }
 
 //TODO: start a goroutine that connects to the RabbitMQ server,
@@ -110,10 +117,6 @@ func transferMessages(conn *websocket.Conn) {
 //reads incoming control messages, as described in the
 //Gorilla WebSocket API documentation:
 //http://godoc.org/github.com/gorilla/websocket
-
-type rabbitMsg struct {
-	userIDs []int64
-}
 
 // RabbitMQConn shit
 func (ctx *ContextHandler) RabbitMQConn() {
@@ -148,8 +151,14 @@ func (ctx *ContextHandler) RabbitMQConn() {
 		nil,    // args
 	)
 
+	go ctx.Notifier.run(msgs)
+}
+
+func (notifier *Notifier) run(msgs <-chan amqp.Delivery) {
+	notifier.mu.Lock()
+	defer notifier.mu.Unlock()
 	for msg := range msgs {
-		message := &rabbitMsg{}
+		message := &messageObj{}
 		err := json.Unmarshal([]byte(msg.Body), message)
 		if err != nil {
 			fmt.Println(err)
@@ -157,26 +166,20 @@ func (ctx *ContextHandler) RabbitMQConn() {
 		if len(message.userIDs) > 0 {
 			// If private
 			for _, id := range message.userIDs {
-				socket := ctx.Notifier.getConnection(id)
-				socket.WriteMessage(websocket.CloseMessage, msg.Body)
+				socket := notifier.getConnection(id)
+				err = socket.WriteMessage(websocket.TextMessage, msg.Body)
 				if err != nil {
-					// TODO: Close socket
-					socket.Close()
-					ctx.Notifier.removeConnection(id)
+					notifier.removeConnection(id)
 				}
 			}
 		} else {
 			// Public
-			for id, socket := range ctx.Notifier.connections {
-				// TODO: What the fuck is closemessage
-				err := socket.WriteMessage(websocket.CloseMessage, msg.Body)
+			for id, socket := range notifier.connections {
+				err = socket.WriteMessage(websocket.TextMessage, msg.Body)
 				if err != nil {
-					// TODO: Close socket
-					socket.Close()
-					ctx.Notifier.removeConnection(id)
+					notifier.removeConnection(id)
 				}
 			}
-
 		}
 	}
 }
