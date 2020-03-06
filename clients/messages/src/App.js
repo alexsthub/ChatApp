@@ -11,11 +11,11 @@ export default class App extends React.Component {
     this.state = {
       user: null,
       content: "home",
-      channels: []
+      channels: [],
+      selectedChannelID: "5e584f56dad1cd00a4e106e6",
+      selectedMessages: []
     };
   }
-
-  componentDidMount() {}
 
   handleSignIn = (email, password) => {
     fetch("https://api.alexst.me/v1/sessions", {
@@ -42,32 +42,10 @@ export default class App extends React.Component {
       .then(user => {
         this.setState({ user: user });
         this.getChannels();
+        this.getSpecificChannel(this.state.selectedChannelID);
       })
       .catch(err => {
         alert(err);
-        return;
-      });
-  };
-
-  getChannels = () => {
-    fetch("https://api.alexst.me/v1/channels", {
-      method: "GET",
-      headers: {
-        Authorization: localStorage.getItem("Auth")
-      }
-    })
-      .then(response => {
-        return response.json();
-      })
-      .catch(err => {
-        alert(err);
-        return;
-      })
-      .then(channels => {
-        console.log(channels);
-        this.setState({ channels: channels });
-      })
-      .catch(err => {
         return;
       });
   };
@@ -154,13 +132,59 @@ export default class App extends React.Component {
       });
   };
 
-  handleUpdateChange = () => {
-    this.setState({ content: "update" });
+  handleChannelChange = event => {
+    const name = event.target.innerText;
+    const newChannel = this.state.channels.filter(c => c.name === name)[0];
+    this.setState({ selectedChannelID: newChannel._id });
+  };
+
+  getChannels = () => {
+    fetch("https://api.alexst.me/v1/channels", {
+      method: "GET",
+      headers: {
+        Authorization: localStorage.getItem("Auth")
+      }
+    })
+      .then(response => {
+        return response.json();
+      })
+      .catch(err => {
+        alert(err);
+        return;
+      })
+      .then(channels => {
+        console.log(channels);
+        this.setState({ channels: channels });
+      })
+      .catch(err => {
+        return;
+      });
+  };
+
+  getSpecificChannel = channelID => {
+    fetch(`https://api.alexst.me/v1/channels/${channelID}`, {
+      method: "GET",
+      headers: {
+        Authorization: localStorage.getItem("Auth")
+      }
+    })
+      .then(response => {
+        return response.json();
+      })
+      .catch(err => {
+        alert(err);
+        return;
+      })
+      .then(messages => {
+        this.setState({ selectedMessages: messages });
+        console.log(messages);
+      });
   };
 
   render() {
     let content = null;
     let channels = null;
+    let selectedChannel = null;
     switch (this.state.content) {
       case "update":
         content = (
@@ -197,7 +221,7 @@ export default class App extends React.Component {
             </button>
             <button
               className="btn btn-primary mr-2"
-              onClick={this.handleUpdateChange}
+              onClick={() => this.setState({ content: "update" })}
             >
               Update Profile
             </button>
@@ -211,7 +235,9 @@ export default class App extends React.Component {
         );
         channels = (
           <div style={{ marginTop: 40 }}>
-            <p>These are the available channels</p>
+            <p style={{ fontSize: 24, textDecoration: "underline" }}>
+              These are the available channels
+            </p>
             <div onClick={() => this.setState({ content: "createChannel" })}>
               <p style={{ fontWeight: "bold" }}>Create a channel +</p>
             </div>
@@ -220,7 +246,7 @@ export default class App extends React.Component {
                 <div key={i}>
                   <a
                     style={{ color: "blue" }}
-                    onClick={() => console.log("FUCK")}
+                    onClick={this.handleChannelChange}
                   >
                     {ch.name}
                   </a>
@@ -228,6 +254,9 @@ export default class App extends React.Component {
               );
             })}
           </div>
+        );
+        selectedChannel = this.state.channels.filter(
+          c => c._id === this.state.selectedChannelID
         );
     }
     return (
@@ -239,20 +268,35 @@ export default class App extends React.Component {
             handleSignUp={this.handleSignUp}
           />
         ) : (
-          <div>
-            <p>Congratulations on signing in!</p>
-            <p>
-              Your name is {this.state.user.firstName}
-              {"  "}
-              {this.state.user.lastName}
-            </p>
+          <div style={{ display: "flex", flexDirection: "row" }}>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <p>Congratulations on signing in!</p>
+              <p>
+                Your name is {this.state.user.firstName}
+                {"  "}
+                {this.state.user.lastName}
+              </p>
 
-            {content}
+              {content}
 
-            {channels}
+              {channels}
+            </div>
+            <div style={styles.channelContainer}>
+              <p style={{ fontWeight: "bold", fontSize: 24 }}>
+                Channel: {selectedChannel[0] ? selectedChannel[0].name : null}
+              </p>
+            </div>
           </div>
         )}
       </div>
     );
   }
 }
+
+const styles = {
+  channelContainer: {
+    display: "flex",
+    flexDirection: "column",
+    marginLeft: 80
+  }
+};
