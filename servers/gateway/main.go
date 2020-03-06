@@ -41,7 +41,6 @@ func CustomDirector(targets []string, ctx *handlers.ContextHandler) Director {
 		r.Host = targ
 		r.URL.Host = targ
 		r.URL.Scheme = "http"
-		log.Print(r)
 	}
 }
 

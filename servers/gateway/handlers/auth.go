@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"log"
 	"net/http"
 	"path"
 	"sort"
@@ -223,6 +224,19 @@ func (ctx *ContextHandler) SessionsHandler(w http.ResponseWriter, r *http.Reques
 			http.Error(w, "Request body must be in JSON", http.StatusUnsupportedMediaType)
 			return
 		}
+
+		if len(r.Header.Get("Authorization")) > 0 && r.Header.Get("Authorization") != "" {
+			log.Print(r.Header.Get("Authorization"))
+			sessionState := &SessionState{}
+			_, err := sessions.GetState(r, ctx.SigningKey, ctx.SessionStore, sessionState)
+			if err == nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusCreated)
+				err = json.NewEncoder(w).Encode(sessionState.User)
+				return
+			}
+		}
+
 		creds := &users.Credentials{}
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(r.Body)
@@ -277,10 +291,10 @@ func (ctx *ContextHandler) SpecificSessionsHandler(w http.ResponseWriter, r *htt
 
 		sessionState := &SessionState{}
 		_, err = sessions.GetState(r, ctx.SigningKey, ctx.SessionStore, sessionState)
-		// Remove websocket connection
-		conn := ctx.Notifier.getConnection(sessionState.User.ID)
-		conn.Close()
-		ctx.Notifier.removeConnection(sessionState.User.ID)
+		// TODO: Remove websocket connection
+		// conn := ctx.Notifier.getConnection(sessionState.User.ID)
+		// conn.Close()
+		// ctx.Notifier.removeConnection(sessionState.User.ID)
 		w.Write([]byte("Signed Out"))
 		return
 	default:
