@@ -4,14 +4,37 @@ import "./App.css";
 export default class Channel extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { text: "", edit: false };
+    this.state = { text: "", editMessage: null };
   }
 
   startEdit = (event, i) => {
     const message = this.props.messages[i];
-    console.log(message);
-    this.setState({ edit: true });
+    this.setState({ editMessage: message, text: message.body });
     this.input.focus();
+  };
+
+  handleEdit = () => {
+    const newMessage = this.state.text;
+    const message = this.state.editMessage;
+
+    fetch("https://api.alexst.me/v1/messages/" + message._id, {
+      method: "PATCH",
+      headers: {
+        Authorization: localStorage.getItem("Auth")
+      },
+      body: JSON.stringify({
+        message: newMessage
+      })
+    })
+      .then(response => {
+        return response.json();
+      })
+      .then(newMessage => {
+        console.log(newMessage);
+      })
+      .catch(err => {
+        console.log(err);
+      });
   };
 
   deleteItem = (event, i) => {
@@ -121,8 +144,11 @@ export default class Channel extends React.Component {
             value={this.state.text}
             onChange={this.handleChange}
           />
-          <button className="btn btn-primary mr-2" onClick={this.handleAdd}>
-            {this.state.edit ? "Add" : "Edit"}
+          <button
+            className="btn btn-primary mr-2"
+            onClick={this.state.editMessage ? this.handleEdit : this.handleAdd}
+          >
+            {this.state.editMessage ? "Edit" : "Add"}
           </button>
         </div>
       </div>
