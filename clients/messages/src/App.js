@@ -13,11 +13,9 @@ export default class App extends React.Component {
   }
 
   componentDidMount() {
-    console.log("AUTH TOKEN");
-    console.log(localStorage.getItem("Auth"));
-    // if (localStorage.getItem("Auth")) {
-    //   this.handleSignIn("", "");
-    // }
+    if (localStorage.getItem("Auth")) {
+      this.handleSignIn("", "");
+    }
   }
 
   handleSignIn = (email, password) => {
@@ -25,7 +23,6 @@ export default class App extends React.Component {
     if (localStorage.getItem("Auth")) {
       headers.Authorization = localStorage.getItem("Auth");
     }
-    console.log(headers);
     fetch("https://api.alexst.me/v1/sessions", {
       method: "POST",
       headers: headers,
@@ -43,12 +40,7 @@ export default class App extends React.Component {
           localStorage.removeItem("Auth");
         }
       })
-      .catch(err => {
-        alert(err);
-        return;
-      })
       .then(user => {
-        console.log(user);
         this.setState({ user: user });
       })
       .catch(err => {

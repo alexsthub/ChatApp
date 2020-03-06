@@ -6,7 +6,7 @@ import CreateChannel from "./CreateChannel";
 import UpdateForm from "./UpdateForm";
 import Channel from "./Channel";
 
-// TODO: EDIT AND DELETE MESSAGE
+// TODO: EDIT  MESSAGE
 // TODO: Auth token cannot be read when i go over here
 export default class Main extends React.Component {
   constructor(props) {
