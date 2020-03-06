@@ -29,11 +29,8 @@ func CustomDirector(targets []string, ctx *handlers.ContextHandler) Director {
 			sessionState := &handlers.SessionState{}
 			_, err := sessions.GetState(r, ctx.SigningKey, ctx.SessionStore, sessionState)
 			if err == nil {
-				log.Print("MARSHALLING")
 				user, err := json.Marshal(sessionState.User)
 				if err == nil {
-					log.Print("SHOULD ADD XUSER")
-					log.Print(string(user))
 					r.Header.Add("X-user", string(user))
 				}
 			}
@@ -101,7 +98,10 @@ func main() {
 	}
 	messagesProxy := &httputil.ReverseProxy{Director: CustomDirector(messagesAddrs, ctx)}
 	mux.Handle("/v1/channels", messagesProxy)
+	mux.Handle("/v1/channels/", messagesProxy)
+	mux.Handle("/v1/channels/{channelID}/", messagesProxy)
 	mux.Handle("/v1/messages", messagesProxy)
+	mux.Handle("/v1/messages/", messagesProxy)
 
 	mux.HandleFunc("/v1/users", ctx.UsersHandler)
 	mux.HandleFunc("/v1/users/", ctx.SpecificUsersHandler)
