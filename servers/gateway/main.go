@@ -99,7 +99,10 @@ func main() {
 	}
 	messagesProxy := &httputil.ReverseProxy{Director: CustomDirector(messagesAddrs, ctx)}
 	mux.Handle("/v1/channels", messagesProxy)
+	mux.Handle("/v1/channels/", messagesProxy)
+	mux.Handle("/v1/channels/{channelID}/", messagesProxy)
 	mux.Handle("/v1/messages", messagesProxy)
+	mux.Handle("/v1/messages/", messagesProxy)
 
 	mux.HandleFunc("/v1/users", ctx.UsersHandler)
 	mux.HandleFunc("/v1/users/", ctx.SpecificUsersHandler)
