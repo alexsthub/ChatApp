@@ -12,17 +12,20 @@ export default class App extends React.Component {
     };
   }
 
-  // componentDidMount() {
-  //   if (localStorage.getItem("Auth")) {
-  //     this.handleSignIn("", "");
-  //   }
-  // }
+  componentDidMount() {
+    console.log("AUTH TOKEN");
+    console.log(localStorage.getItem("Auth"));
+    // if (localStorage.getItem("Auth")) {
+    //   this.handleSignIn("", "");
+    // }
+  }
 
   handleSignIn = (email, password) => {
     const headers = { "Content-Type": " application/json" };
     if (localStorage.getItem("Auth")) {
       headers.Authorization = localStorage.getItem("Auth");
     }
+    console.log(headers);
     fetch("https://api.alexst.me/v1/sessions", {
       method: "POST",
       headers: headers,

@@ -7,13 +7,56 @@ export default class Channel extends React.Component {
     this.state = {};
   }
 
+  startEdit = (event, i) => {
+    const message = this.props.messages[i];
+    console.log(message);
+  };
+
+  deleteItem = (event, i) => {
+    const message = this.props.messages[i];
+    fetch("https://api.alexst.me/v1/messages/" + message._id, {
+      method: "DELETE",
+      headers: {
+        Authorization: localStorage.getItem("Auth")
+      }
+    })
+      .then(resp => {
+        return resp.text();
+      })
+      .catch(err => {
+        console.log(err);
+      })
+      .then(text => {
+        console.log(text);
+      });
+  };
+
   render() {
     const messages = this.props.messages.map((m, i) => {
       return (
-        <div key={i} style={{ display: "flex", flexDirection: "row" }}>
-          <p style={{ fontWeight: "bold" }}>{m.creator.userName}</p>
-          <p style={{ paddingLeft: 10, paddingRight: 10 }}>-</p>
-          <p>{m.body}</p>
+        <div key={i} style={{ display: "flex", flexDirection: "column" }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "row"
+            }}
+          >
+            <p style={{ fontWeight: "bold", marginBottom: 0 }}>
+              {m.creator.userName}
+            </p>
+            <p style={{ paddingLeft: 10, paddingRight: 10 }}>-</p>
+            <p>{m.body}</p>
+          </div>
+          {m.creator.id === this.props.user.id ? (
+            <div style={{ display: "flex", flexDirection: "row" }}>
+              <div onClick={event => this.deleteItem(event, i)}>
+                <p style={{ color: "red" }}>Delete</p>
+              </div>
+              <div onClick={event => this.startEdit(event, i)}>
+                <p style={{ color: "blue", marginLeft: 10 }}>Edit</p>
+              </div>
+            </div>
+          ) : null}
         </div>
       );
     });
@@ -22,7 +65,9 @@ export default class Channel extends React.Component {
         <p style={{ fontWeight: "bold", fontSize: 24 }}>
           Channel: {this.props.channel ? this.props.channel.name : null}
         </p>
-        <p style={{ textDecoration: "underline" }}>Messages Below</p>
+        <p style={{ textDecoration: "underline" }}>
+          Messages Below (Newest at the top. I'm sorry)
+        </p>
         <div style={styles.messageContainer}>{messages}</div>
         <AddMessage channel={this.props.channel} />
       </div>

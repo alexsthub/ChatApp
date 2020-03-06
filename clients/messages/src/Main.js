@@ -6,6 +6,8 @@ import CreateChannel from "./CreateChannel";
 import UpdateForm from "./UpdateForm";
 import Channel from "./Channel";
 
+// TODO: EDIT AND DELETE MESSAGE
+// TODO: Auth token cannot be read when i go over here
 export default class Main extends React.Component {
   constructor(props) {
     super(props);
@@ -18,6 +20,8 @@ export default class Main extends React.Component {
   }
 
   componentDidMount() {
+    // console.log("AUTH TOKEN");
+    // console.log(localStorage.getItem("Auth"));
     this.getChannels();
     this.getSpecificChannel(this.state.selectedChannelID);
   }
@@ -215,6 +219,7 @@ export default class Main extends React.Component {
           <Channel
             channel={selectedChannel[0]}
             messages={this.state.selectedMessages}
+            user={this.props.user}
           />
         ) : null}
       </div>
