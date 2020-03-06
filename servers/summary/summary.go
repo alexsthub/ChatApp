@@ -80,20 +80,6 @@ func SummaryHandler(w http.ResponseWriter, r *http.Request) {
 //Errors are returned if the response status code is an error (>=400),
 //or if the content type indicates the URL is not an HTML page.
 func fetchHTML(pageURL string) (io.ReadCloser, error) {
-	/*TODO: Do an HTTP GET for the page URL. If the response status
-	code is >= 400, return a nil stream and an error. If the response
-	content type does not indicate that the content is a web page, return
-	a nil stream and an error. Otherwise return the response body and
-	no (nil) error.
-
-	To test your implementation of this function, run the TestFetchHTML
-	test in summary_test.go. You can do that directly in Visual Studio Code,
-	or at the command line by running:
-		go test -run TestFetchHTML
-
-	Helpful Links:
-	https://golang.org/pkg/net/http/#Get
-	*/
 	resp, err := http.Get(pageURL)
 	if err != nil {
 		return nil, fmt.Errorf("Cannot perform request. Invalid URL")
@@ -112,20 +98,6 @@ func fetchHTML(pageURL string) (io.ReadCloser, error) {
 //extractSummary tokenizes the `htmlStream` and populates a PageSummary
 //struct with the page's summary meta-data.
 func extractSummary(pageURL string, htmlStream io.ReadCloser) (*PageSummary, error) {
-	/*TODO: tokenize the `htmlStream` and extract the page summary meta-data
-	according to the assignment description.
-
-	To test your implementation of this function, run the TestExtractSummary
-	test in summary_test.go. You can do that directly in Visual Studio Code,
-	or at the command line by running:
-		go test -run TestExtractSummary
-
-	Helpful Links:
-	https://drstearns.github.io/tutorials/tokenizing/
-	http://ogp.me/
-	https://developers.facebook.com/docs/reference/opengraph/
-	https://golang.org/pkg/net/url/#URL.ResolveReference
-	*/
 	defer htmlStream.Close()
 	tokenizer := html.NewTokenizer(htmlStream)
 	summaryData := &PageSummary{}

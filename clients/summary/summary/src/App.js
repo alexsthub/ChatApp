@@ -1,7 +1,6 @@
 import React from "react";
 import "./App.css";
 
-// TODO: How to I get the errors to show up from the server?
 export default class App extends React.Component {
   constructor(props) {
     super(props);

@@ -6,9 +6,13 @@ import CreateChannel from "./CreateChannel";
 import UpdateForm from "./UpdateForm";
 import Channel from "./Channel";
 
-// TODO: EDIT  MESSAGE
-// TODO: Auth token cannot be read when i go over here
+// TODO: Edit endpoint isn't reading the body?
+// TODO: Handle websocket
 export default class Main extends React.Component {
+  ws = new WebSocket(
+    "ws://api.alexst.me/ws?auth=" + localStorage.getItem("Auth")
+  );
+
   constructor(props) {
     super(props);
     this.state = {
@@ -20,10 +24,22 @@ export default class Main extends React.Component {
   }
 
   componentDidMount() {
-    // console.log("AUTH TOKEN");
-    // console.log(localStorage.getItem("Auth"));
     this.getChannels();
     this.getSpecificChannel(this.state.selectedChannelID);
+
+    this.ws.onopen = () => {
+      console.log("connected ws");
+    };
+
+    this.ws.onmessage = evt => {
+      const message = JSON.parse(evt.data);
+      console.log(message);
+      // this.setState({ dataFromServer: message });
+    };
+
+    this.ws.onclose = () => {
+      console.log("disconnected ws");
+    };
   }
 
   getChannels = () => {
