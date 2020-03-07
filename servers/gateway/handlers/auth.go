@@ -3,7 +3,6 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
-	"log"
 	"net/http"
 	"path"
 	"sort"
@@ -226,7 +225,6 @@ func (ctx *ContextHandler) SessionsHandler(w http.ResponseWriter, r *http.Reques
 		}
 
 		if len(r.Header.Get("Authorization")) > 0 && r.Header.Get("Authorization") != "" {
-			log.Print(r.Header.Get("Authorization"))
 			sessionState := &SessionState{}
 			_, err := sessions.GetState(r, ctx.SigningKey, ctx.SessionStore, sessionState)
 			if err == nil {

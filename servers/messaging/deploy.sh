@@ -8,6 +8,14 @@ docker pull alexsthub/messages
 #   --name mongoMessages \
 #   mongo
 
+# docker run \
+#   -d \
+#   --hostname myrabbitmq \
+#   --name rabbitmq \
+#   -p 5672:5672 -p 15672:15672 \
+#   --network api \
+#   rabbitmq:3-management
+
 docker run \
   -d \
   --network api \

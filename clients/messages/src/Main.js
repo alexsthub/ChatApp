@@ -10,7 +10,7 @@ import Channel from "./Channel";
 // TODO: Handle websocket
 export default class Main extends React.Component {
   ws = new WebSocket(
-    "ws://api.alexst.me/ws?auth=" + localStorage.getItem("Auth")
+    "ws://api.alexst.me/v1/ws?auth=" + localStorage.getItem("Auth")
   );
 
   constructor(props) {

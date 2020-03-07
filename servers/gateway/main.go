@@ -82,6 +82,9 @@ func main() {
 	}
 	ctx.UserTrie = userTrie
 
+	// Connect to rabbitMQ
+	ctx.RabbitMQConn()
+
 	mux := http.NewServeMux()
 	var summaryAddrs []string
 	for _, port := range strings.Split(os.Getenv("SUMMARYADDR"), ",") {
@@ -108,7 +111,8 @@ func main() {
 	mux.HandleFunc("/v1/sessions", ctx.SessionsHandler)
 	mux.HandleFunc("/v1/sessions/", ctx.SpecificSessionsHandler)
 
-	mux.HandleFunc("/ws", ctx.WebSocketConnectionHandler)
+	// TODO: THIS ISNT HANDLING SHIT
+	mux.HandleFunc("/v1/ws", ctx.WebSocketConnectionHandler)
 
 	wrappedMuxed := &handlers.CorsMW{Handler: mux}
 

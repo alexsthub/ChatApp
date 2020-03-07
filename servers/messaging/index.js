@@ -12,7 +12,7 @@ app.use(morgan("dev"));
 const addr = process.env.ADDR || ":6000";
 const [host, port] = addr.split(":");
 
-const conn_url = "mongodb://localhost:27017/messages";
+const conn_url = "mongodb://mongomessages:27017/messages";
 let dbClient;
 MongoClient.connect(conn_url, function(err, client) {
   if (!err) {
@@ -48,9 +48,8 @@ let rabbitMQChannel;
 const queueName = "message";
 // Connect to RabbitMQ
 var amqp = require("amqplib/callback_api");
-amqp.connect("amqp://localhost", function(error, connection) {
+amqp.connect("amqp://rabbitmq", function(error, connection) {
   if (error) throw error;
-  rabbitChannel = connection;
   connection.createChannel(function(error, channel) {
     if (error) throw error;
     rabbitMQChannel = channel;
@@ -166,13 +165,13 @@ app.post("/v1/channels", (req, res, next) => {
         res.status(201);
         res.set("Content-Type", "application/json");
         res.json(newChannel);
-        // TODO: Send to queue
         const message = {
           messageType: "channel-new",
           channel: newChannel,
           userIDs: newChannel.private ? newChannel.members.map(m => m.id) : null
         };
         const m = JSON.stringify(message);
+        console.log(m);
         rabbitMQChannel.sendToQueue(queueName, Buffer.from(m));
       }
     });
@@ -263,11 +262,10 @@ app.post("/v1/channels/:channelID", async (req, res, next) => {
       } else {
         res.status(201);
         res.set("Content-Type", "application/json");
-        res.json(response);
-        // TODO: Send to queue
+        res.json(response.ops[0]);
         const message = {
           messageType: "message-new",
-          channel: response,
+          channel: channel,
           userIDs: channel.private ? channel.members.map(m => m.id) : null
         };
         const m = JSON.stringify(message);
@@ -315,7 +313,6 @@ app.patch("/v1/channels/:channelID", async (req, res, next) => {
         } else {
           res.set("Content-Type", "application/json");
           res.json(response.value);
-          // TODO: Send to queue
           const message = {
             messageType: "channel-update",
             channel: response.value,
@@ -368,7 +365,6 @@ app.delete("/v1/channels/:channelID", async (req, res, next) => {
       }
     });
   res.send("Channel successfully deleted");
-  // TODO: Send to queue
   const message = {
     messageType: "channel-delete",
     channelID: channelID,
@@ -495,7 +491,6 @@ app.patch("/v1/messages/:messageID", async (req, res, next) => {
         } else {
           res.set("Content-Type", "application/json");
           res.json(result.value);
-          // TODO: Send to queue
           dbClient
             .collection("channels")
             .findOne({ _id: new ObjectId(result.value.channelID) }, function(
@@ -504,7 +499,7 @@ app.patch("/v1/messages/:messageID", async (req, res, next) => {
             ) {
               const message = {
                 messageType: "message-update",
-                channel: result.value,
+                channel: result,
                 userIDs: result.private ? result.members.map(m => m.id) : null
               };
               const m = JSON.stringify(message);
@@ -544,7 +539,6 @@ app.delete("/v1/messages/:messageID", async (req, res, next) => {
         return;
       } else {
         res.send("Message successfully deleted");
-        // TODO: Send to queue.
         const message = {
           messageType: "message-delete",
           messageID: messageID,

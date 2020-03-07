@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os/user"
 	"sync"
@@ -22,7 +23,6 @@ type Notifier struct {
 // NewNotifier ah
 func NewNotifier() *Notifier {
 	ws := &Notifier{
-		mu:          sync.RWMutex{},
 		connections: make(map[int64]*websocket.Conn),
 	}
 	return ws
@@ -52,6 +52,7 @@ func (notifier *Notifier) removeConnection(userID int64) {
 
 // WebSocketConnectionHandler upgrade the connection to a web socket connection if the user is authenticated
 func (ctx *ContextHandler) WebSocketConnectionHandler(w http.ResponseWriter, r *http.Request) {
+	log.Print("MADE IT TO HANDLER")
 	// Check if user is authenticated
 	sessionState := &SessionState{}
 	_, err := sessions.GetState(r, ctx.SigningKey, ctx.SessionStore, sessionState)
@@ -76,6 +77,29 @@ func (ctx *ContextHandler) WebSocketConnectionHandler(w http.ResponseWriter, r *
 		return
 	}
 	ctx.Notifier.addConnection(sessionState.User.ID, conn)
+	log.Print("ADDED A WS CONNECTION")
+
+	go (func(userID int64, conn *websocket.Conn) {
+		defer conn.Close()
+		// TODO: remove from list
+		for {
+			messageType, data, err := conn.ReadMessage()
+			log.Print("READ MESSAGE")
+			log.Print(messageType)
+			log.Print(data)
+			if messageType == websocket.TextMessage || messageType == websocket.BinaryMessage {
+				if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+					fmt.Print("error")
+				}
+			} else if messageType == websocket.CloseMessage {
+				fmt.Println("Close message")
+				break
+			} else if err != nil {
+				fmt.Println("Error reading message")
+				break
+			}
+		}
+	})(sessionState.User.ID, conn)
 }
 
 type channel struct {
@@ -118,15 +142,15 @@ type messageObj struct {
 //Gorilla WebSocket API documentation:
 //http://godoc.org/github.com/gorilla/websocket
 
-// RabbitMQConn shit
+// RabbitMQConn connects to rabbitMQ and listens
 func (ctx *ContextHandler) RabbitMQConn() {
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq:5672/")
 	if err != nil {
-		fmt.Print("Failed to connecto rabbitMQ")
+		log.Print("Failed to connecto rabbitMQ")
 	}
 	ch, err := conn.Channel()
 	if err != nil {
-		fmt.Print("Failed to create channel")
+		log.Print("Failed to create channel")
 	}
 
 	q, err := ch.QueueDeclare(
@@ -138,7 +162,7 @@ func (ctx *ContextHandler) RabbitMQConn() {
 		nil,       // arguments
 	)
 	if err != nil {
-		fmt.Print("Failed to declare a queue")
+		log.Print("Failed to declare a queue")
 	}
 
 	msgs, err := ch.Consume(
@@ -161,8 +185,10 @@ func (notifier *Notifier) run(msgs <-chan amqp.Delivery) {
 		message := &messageObj{}
 		err := json.Unmarshal([]byte(msg.Body), message)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 		}
+		log.Print(message.messageType)
+		log.Print(string(msg.Body))
 		if len(message.userIDs) > 0 {
 			// If private
 			for _, id := range message.userIDs {
