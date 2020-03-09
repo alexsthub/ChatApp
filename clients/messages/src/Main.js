@@ -9,10 +9,6 @@ import Channel from "./Channel";
 // TODO: Edit endpoint isn't reading the body?
 // TODO: Handle websocket
 export default class Main extends React.Component {
-  ws = new WebSocket(
-    "ws://api.alexst.me/v1/ws?auth=" + localStorage.getItem("Auth")
-  );
-
   constructor(props) {
     super(props);
     this.state = {
@@ -26,6 +22,9 @@ export default class Main extends React.Component {
   componentDidMount() {
     this.getChannels();
     this.getSpecificChannel(this.state.selectedChannelID);
+    this.ws = new WebSocket(
+      "wss://api.alexst.me/v1/ws?auth=" + localStorage.getItem("Auth")
+    );
 
     this.ws.onopen = () => {
       console.log("connected ws");

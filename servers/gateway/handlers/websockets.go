@@ -65,9 +65,6 @@ func (ctx *ContextHandler) WebSocketConnectionHandler(w http.ResponseWriter, r *
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 		CheckOrigin: func(r *http.Request) bool {
-			if r.Header.Get("Origin") != "https://alexst.me" {
-				return false
-			}
 			return true
 		},
 	}
