@@ -9,8 +9,8 @@ export default class SignUpForm extends React.Component {
       signIn: false,
       firstname: "",
       lastname: "",
-      email: "alexst@gmail.com",
-      password: "password",
+      email: "",
+      password: "",
       passwordConf: "",
       username: ""
     };
