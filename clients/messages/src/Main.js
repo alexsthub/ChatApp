@@ -32,8 +32,43 @@ export default class Main extends React.Component {
 
     this.ws.onmessage = evt => {
       const message = JSON.parse(evt.data);
+      switch (message.messageType) {
+        case "message-new":
+          if (message.message.channelID === this.state.selectedChannelID) {
+            const m = this.state.selectedMessages;
+            m.unshift(message.message);
+            this.setState({ selectedMessages: m });
+            break;
+          }
+        case "message-delete":
+          const m = this.state.selectedMessages.filter(obj => {
+            return obj._id !== message.messageID;
+          });
+          this.setState({ selectedMessages: m });
+          break;
+        case "message-update":
+          if (message.message.channelID === this.state.selectedChannelID) {
+            const m = this.state.selectedMessages;
+            const oIndex = m.findIndex(obj => obj._id === message.message._id);
+            m[oIndex].body = message.message.body;
+            this.setState({ selectedMessages: m });
+          }
+          break;
+        case "channel-new":
+          const c = this.state.channels;
+          c.push(message.channel);
+          this.setState({ channels: c });
+          break;
+        case "channel-delete":
+          const newChannels = this.state.channels.filter(obj => {
+            return obj._id !== message.channelID;
+          });
+          this.setState({ channels: newChannels });
+          break;
+        default:
+          console.log("default");
+      }
       console.log(message);
-      // this.setState({ dataFromServer: message });
     };
 
     this.ws.onclose = () => {
@@ -81,7 +116,6 @@ export default class Main extends React.Component {
       })
       .then(messages => {
         this.setState({ selectedMessages: messages });
-        console.log(messages);
       });
   };
 

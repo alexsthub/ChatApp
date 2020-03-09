@@ -265,7 +265,7 @@ app.post("/v1/channels/:channelID", async (req, res, next) => {
         res.json(response.ops[0]);
         const message = {
           messageType: "message-new",
-          channel: channel,
+          message: response.ops[0],
           userIDs: channel.private ? channel.members.map(m => m.id) : null
         };
         const m = JSON.stringify(message);
@@ -495,12 +495,12 @@ app.patch("/v1/messages/:messageID", async (req, res, next) => {
             .collection("channels")
             .findOne({ _id: new ObjectId(result.value.channelID) }, function(
               err,
-              result
+              r
             ) {
               const message = {
                 messageType: "message-update",
-                channel: result,
-                userIDs: result.private ? result.members.map(m => m.id) : null
+                message: result.value,
+                userIDs: r.private ? r.members.map(m => m.id) : null
               };
               const m = JSON.stringify(message);
               rabbitMQChannel.sendToQueue(queueName, Buffer.from(m));

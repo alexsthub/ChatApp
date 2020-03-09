@@ -80,13 +80,13 @@ export default class Channel extends React.Component {
       .then(response => {
         return response.json();
       })
+      .then(m => {
+        // console.log(m);
+        this.setState({ text: "" });
+      })
       .catch(err => {
         alert(err);
         return;
-      })
-      .then(m => {
-        console.log(m);
-        this.setState({ text: "" });
       });
   };
 

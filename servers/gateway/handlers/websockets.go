@@ -29,9 +29,9 @@ func NewNotifier() *Notifier {
 }
 
 func (notifier *Notifier) addConnection(userID int64, conn *websocket.Conn) {
-	notifier.mu.Lock()
-	defer notifier.mu.Unlock()
+	// notifier.mu.Lock()
 	notifier.connections[userID] = conn
+	// notifier.mu.Unlock()
 }
 
 func (notifier *Notifier) getConnection(userID int64) *websocket.Conn {
@@ -52,7 +52,6 @@ func (notifier *Notifier) removeConnection(userID int64) {
 
 // WebSocketConnectionHandler upgrade the connection to a web socket connection if the user is authenticated
 func (ctx *ContextHandler) WebSocketConnectionHandler(w http.ResponseWriter, r *http.Request) {
-	log.Print("MADE IT TO HANDLER")
 	// Check if user is authenticated
 	sessionState := &SessionState{}
 	_, err := sessions.GetState(r, ctx.SigningKey, ctx.SessionStore, sessionState)
@@ -74,58 +73,55 @@ func (ctx *ContextHandler) WebSocketConnectionHandler(w http.ResponseWriter, r *
 		return
 	}
 	ctx.Notifier.addConnection(sessionState.User.ID, conn)
-	log.Print("ADDED A WS CONNECTION")
 
-	go (func(userID int64, conn *websocket.Conn) {
-		defer conn.Close()
-		// TODO: remove from list
-		for {
-			messageType, data, err := conn.ReadMessage()
-			log.Print("READ MESSAGE")
-			log.Print(messageType)
-			log.Print(data)
-			if messageType == websocket.TextMessage || messageType == websocket.BinaryMessage {
-				if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-					fmt.Print("error")
-				}
-			} else if messageType == websocket.CloseMessage {
-				fmt.Println("Close message")
-				break
-			} else if err != nil {
-				fmt.Println("Error reading message")
-				break
+	go listenToSocket(sessionState.User.ID, conn)
+}
+
+func listenToSocket(userID int64, conn *websocket.Conn) {
+	defer conn.Close()
+	for {
+		messageType, data, err := conn.ReadMessage()
+		if messageType == websocket.TextMessage || messageType == websocket.BinaryMessage {
+			if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+				fmt.Print("error")
 			}
+		} else if messageType == websocket.CloseMessage {
+			fmt.Println("Close message")
+			break
+		} else if err != nil {
+			fmt.Println("Error reading message")
+			break
 		}
-	})(sessionState.User.ID, conn)
+	}
 }
 
 type channel struct {
 	_id         string
-	name        string
-	description string
-	private     bool
-	members     []*user.User
-	createdAt   time.Time
-	creator     *user.User
-	editedAt    time.Time
+	Name        string
+	Description string
+	Private     bool
+	Members     []*user.User
+	CreatedAt   time.Time
+	Creator     *user.User
+	EditedAt    time.Time
 }
 
 type message struct {
 	_id       string
-	channelID string
-	body      string
-	createdAt time.Time
-	creator   *user.User
-	editedAt  time.Time
+	ChannelID string
+	Body      string
+	CreatedAt time.Time
+	Creator   *user.User
+	EditedAt  time.Time
 }
 
 type messageObj struct {
-	messageType string
-	channel     *channel
-	channelID   string
-	message     *message
-	messageID   string
-	userIDs     []int64
+	MessageType string
+	Channel     *channel
+	ChannelID   string
+	Message     *message
+	MessageID   string
+	UserIDs     []int64
 }
 
 //TODO: start a goroutine that connects to the RabbitMQ server,
@@ -180,15 +176,13 @@ func (notifier *Notifier) run(msgs <-chan amqp.Delivery) {
 	defer notifier.mu.Unlock()
 	for msg := range msgs {
 		message := &messageObj{}
-		err := json.Unmarshal([]byte(msg.Body), message)
+		err := json.Unmarshal(msg.Body, message)
 		if err != nil {
 			log.Println(err)
 		}
-		log.Print(message.messageType)
-		log.Print(string(msg.Body))
-		if len(message.userIDs) > 0 {
+		if len(message.UserIDs) > 0 {
 			// If private
-			for _, id := range message.userIDs {
+			for _, id := range message.UserIDs {
 				socket := notifier.getConnection(id)
 				err = socket.WriteMessage(websocket.TextMessage, msg.Body)
 				if err != nil {
